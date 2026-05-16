@@ -1,0 +1,114 @@
+[
+  {
+    "slot": 1,
+    "category": "פלג גוף תחתון",
+    "name_he": "רגליים דחיפה (מכונה)",
+    "name_en": "Lever Seated Leg Press",
+    "primary_muscles": "ארבע-ראשי (Quadriceps)",
+    "video_url": "https://exrx.net/WeightExercises/Quadriceps/LVSeatedLegPress"
+  },
+  {
+    "slot": 2,
+    "category": "פלג גוף תחתון",
+    "name_he": "רגל הרמה (פשיטת ברכיים)",
+    "name_en": "Lever Leg Extension",
+    "primary_muscles": "ארבע-ראשי (Quadriceps)",
+    "video_url": "https://exrx.net/WeightExercises/Quadriceps/LVLegExtension"
+  },
+  {
+    "slot": 3,
+    "category": "פלג גוף תחתון",
+    "name_he": "רגליים הורדה (כפיפת ברכיים בישיבה)",
+    "name_en": "Lever Seated Leg Curl",
+    "primary_muscles": "המסטרינג (Hamstrings)",
+    "video_url": "https://exrx.net/WeightExercises/Hamstrings/LVSeatedLegCurl"
+  },
+  {
+    "slot": 4,
+    "category": "פלג גוף תחתון",
+    "name_he": "סגירת רגליים (קירוב ירך)",
+    "name_en": "Lever Seated Hip Adduction",
+    "primary_muscles": "מקרבי הירך (Adductors)",
+    "video_url": "https://exrx.net/WeightExercises/HipAdductors/LVSeatedHipAdduction"
+  },
+  {
+    "slot": 5,
+    "category": "פלג גוף תחתון",
+    "name_he": "פתיחת רגליים (הרחקת ירך)",
+    "name_en": "Lever Seated Hip Abduction",
+    "primary_muscles": "TFL, ישבן אמצעי/קטן",
+    "video_url": "https://exrx.net/WeightExercises/HipAbductor/LVSeatedHipAbduction"
+  },
+  {
+    "slot": 6,
+    "category": "גב וכתפיים",
+    "name_he": "משיכה (פולי עליון)",
+    "name_en": "Cable Pulldown",
+    "primary_muscles": "רחב גבי (Latissimus Dorsi)",
+    "video_url": "https://exrx.net/WeightExercises/LatissimusDorsi/CBFrontPulldown"
+  },
+  {
+    "slot": 7,
+    "category": "גב וכתפיים",
+    "name_he": "דחיפה למעלה (לחיצת כתפיים במכונה)",
+    "name_en": "Lever Shoulder Press",
+    "primary_muscles": "כתף קדמית (Anterior Deltoid)",
+    "video_url": "https://exrx.net/WeightExercises/DeltoidAnterior/LVShoulderPress"
+  },
+  {
+    "slot": 8,
+    "category": "גב וכתפיים",
+    "name_he": "גב תחתון (פשיטת גו)",
+    "name_en": "Weighted Hyperextension",
+    "primary_muscles": "זוקפי הגב (Erector Spinae)",
+    "video_url": "https://exrx.net/WeightExercises/ErectorSpinae/WtHyperextension"
+  },
+  {
+    "slot": 9,
+    "category": "גב וכתפיים",
+    "name_he": "גב צידי (פשיטה צידית)",
+    "name_en": "Weighted 45° Side Bend",
+    "primary_muscles": "אלכסונים (Obliques)",
+    "video_url": "https://exrx.net/WeightExercises/Obliques/WT45SideBend"
+  },
+  {
+    "slot": 10,
+    "category": "חזה וזרועות",
+    "name_he": "חזה דחיקה פנימה (פרפר במכונה)",
+    "name_en": "Lever Pec Deck Fly",
+    "primary_muscles": "חזה גדול (Pectoralis Major)",
+    "video_url": "https://exrx.net/WeightExercises/PectoralSternal/LVPecDeckFly"
+  },
+  {
+    "slot": 11,
+    "category": "חזה וזרועות",
+    "name_he": "זרוע קדמית (כפיפת מרפקים)",
+    "name_en": "Dumbbell Curl",
+    "primary_muscles": "דו-ראשי זרועי (Biceps Brachii)",
+    "video_url": "https://exrx.net/WeightExercises/Biceps/DBCurl"
+  },
+  {
+    "slot": 12,
+    "category": "חזה וזרועות",
+    "name_he": "זרוע אחורית (פשיטת מרפקים)",
+    "name_en": "Lever Triceps Extension",
+    "primary_muscles": "תלת-ראשי זרועי (Triceps Brachii)",
+    "video_url": "https://exrx.net/WeightExercises/Triceps/LVTriExt"
+  },
+  {
+    "slot": 13,
+    "category": "בטן וליבה",
+    "name_he": "בטן קדמית (כפיפות בטן במכונה)",
+    "name_en": "Lever Seated Crunch",
+    "primary_muscles": "ישר בטני (Rectus Abdominis)",
+    "video_url": "https://exrx.net/WeightExercises/RectusAbdominis/LVSeatedCrunch"
+  },
+  {
+    "slot": 14,
+    "category": "בטן וליבה",
+    "name_he": "בטן צידית (רוטציה של המותן)",
+    "name_en": "Lever Seated Twist",
+    "primary_muscles": "אלכסונים (Obliques)",
+    "video_url": "https://exrx.net/WeightExercises/Obliques/LVTwist"
+  }
+]
