@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 
+const STORAGE_KEY = 'rest-timer-seconds'
+const STEP = 10
+const MIN_SECS = 10
+const MAX_SECS = 600
+
 function playBeep() {
   const ctx = new AudioContext()
   for (let i = 0; i < 3; i++) {
@@ -14,10 +19,25 @@ function playBeep() {
   }
 }
 
+function fmt(s: number) {
+  const m = Math.floor(s / 60)
+  const ss = String(s % 60).padStart(2, '0')
+  return `${m}:${ss}`
+}
+
 export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }) {
+  const [duration, setDuration] = useState<number>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    return saved ? parseInt(saved, 10) : defaultSeconds
+  })
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [running, setRunning] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Persist duration whenever it changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, String(duration))
+  }, [duration])
 
   useEffect(() => {
     if (running) {
@@ -34,43 +54,64 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [running])
 
-  function handlePress() {
-    if (running) {
-      setRunning(false)
-      setSecondsLeft(null)
-    } else {
-      setSecondsLeft(defaultSeconds)
-      setRunning(true)
-    }
+  function start() {
+    setSecondsLeft(duration)
+    setRunning(true)
   }
 
-  const mins = Math.floor((secondsLeft ?? 0) / 60)
-  const secs = String((secondsLeft ?? 0) % 60).padStart(2, '0')
+  function stop() {
+    setRunning(false)
+    setSecondsLeft(null)
+  }
+
+  function adjust(delta: number) {
+    setDuration(d => Math.min(MAX_SECS, Math.max(MIN_SECS, d + delta)))
+  }
+
+  if (running) {
+    return (
+      <div className="flex items-center justify-center gap-3 bg-orange-500 px-4 py-2">
+        <span className="text-white font-bold text-lg tabular-nums">
+          {fmt(secondsLeft ?? 0)}
+        </span>
+        <button
+          onClick={stop}
+          className="text-white/80 hover:text-white text-xs font-medium bg-white/20 rounded-lg px-3 py-1"
+        >
+          ■ עצור
+        </button>
+      </div>
+    )
+  }
 
   return (
-    <button
-      onClick={handlePress}
-      className={`
-        fixed bottom-6 end-6 z-50
-        w-16 h-16 rounded-full shadow-2xl
-        flex flex-col items-center justify-center
-        transition-colors
-        ${running ? 'bg-orange-500 hover:bg-orange-400' : 'bg-gray-700 hover:bg-gray-600'}
-      `}
-      title={running ? 'עצור טיימר' : 'התחל מנוחה'}
-    >
-      {running ? (
-        <span className="text-white text-sm font-bold tabular-nums">
-          {mins}:{secs}
-        </span>
-      ) : (
-        <span className="text-2xl">⏱️</span>
-      )}
-    </button>
+    <div className="flex items-center justify-center gap-2 bg-gray-50 border-b border-gray-200 px-4 py-2">
+      <button
+        onClick={() => adjust(-STEP)}
+        disabled={duration <= MIN_SECS}
+        className="w-7 h-7 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-30 text-gray-700 font-bold text-base leading-none flex items-center justify-center"
+      >
+        −
+      </button>
+
+      <button
+        onClick={start}
+        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold tabular-nums"
+      >
+        <span>⏱</span>
+        <span>{fmt(duration)}</span>
+      </button>
+
+      <button
+        onClick={() => adjust(STEP)}
+        disabled={duration >= MAX_SECS}
+        className="w-7 h-7 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-30 text-gray-700 font-bold text-base leading-none flex items-center justify-center"
+      >
+        +
+      </button>
+    </div>
   )
 }

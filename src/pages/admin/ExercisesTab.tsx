@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { ExerciseGlobal } from '../../types/database'
 
@@ -15,7 +15,7 @@ const EMPTY: Omit<ExerciseGlobal, 'id' | 'created_at'> = {
   is_bilateral: false,
   notes: null,
   category: CATEGORIES[0],
-  sort_order: 0,
+  sort_order: 999,
 }
 
 export default function ExercisesTab() {
@@ -24,12 +24,33 @@ export default function ExercisesTab() {
   const [isNew, setIsNew] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPendingImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
+  async function uploadImage(exerciseId: string, file: File): Promise<string> {
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `global/${exerciseId}.${ext}`
+    const { error } = await supabase.storage.from('exercise-images').upload(path, file, { upsert: true })
+    if (error) console.error('Storage upload error:', error)
+    const { data: { publicUrl } } = supabase.storage.from('exercise-images').getPublicUrl(path)
+    // Cache-buster so the browser always fetches the latest version
+    return `${publicUrl}?t=${Date.now()}`
+  }
 
   useEffect(() => {
     supabase
       .from('exercises_global')
       .select('*')
       .order('sort_order')
+      .order('name_he')
       .then(({ data }) => {
         setExercises(data ?? [])
         setLoading(false)
@@ -37,13 +58,17 @@ export default function ExercisesTab() {
   }, [])
 
   function openNew() {
-    setEditing({ ...EMPTY, id: '', created_at: '', sort_order: exercises.length + 1 } as ExerciseGlobal)
+    setEditing({ ...EMPTY, id: '', created_at: '' } as ExerciseGlobal)
     setIsNew(true)
+    setPendingImageFile(null)
+    setImagePreview(null)
   }
 
   function openEdit(ex: ExerciseGlobal) {
     setEditing({ ...ex })
     setIsNew(false)
+    setPendingImageFile(null)
+    setImagePreview(ex.image_url)
   }
 
   async function save() {
@@ -57,17 +82,47 @@ export default function ExercisesTab() {
         .insert(payload)
         .select()
         .single()
-      if (!error && data) setExercises(prev => [...prev, data as ExerciseGlobal])
+      if (!error && data) {
+        let saved = data as ExerciseGlobal
+        if (pendingImageFile) {
+          const url = await uploadImage(saved.id, pendingImageFile)
+          await supabase.from('exercises_global').update({ image_url: url }).eq('id', saved.id)
+          saved = { ...saved, image_url: url }
+        }
+        setExercises(prev => [...prev, saved])
+      }
     } else {
+      let updated = { ...editing }
+      if (pendingImageFile) {
+        const url = await uploadImage(editing.id, pendingImageFile)
+        updated = { ...updated, image_url: url }
+      }
       const { error } = await supabase
         .from('exercises_global')
-        .update(editing)
-        .eq('id', editing.id)
-      if (!error) setExercises(prev => prev.map(e => e.id === editing.id ? editing : e))
+        .update(updated)
+        .eq('id', updated.id)
+      if (!error) {
+        setExercises(prev => prev.map(e => e.id === updated.id ? updated : e))
+        // Propagate factual fields to all users who have this global exercise
+        const propagate: Record<string, unknown> = {
+          name_he:      updated.name_he,
+          name_en:      updated.name_en,
+          category:     updated.category,
+          video_url:    updated.video_url,
+          is_bilateral: updated.is_bilateral,
+        }
+        if (updated.image_url) propagate.image_url = updated.image_url
+        await supabase
+          .from('exercises_user')
+          .update(propagate)
+          .eq('global_exercise_id', updated.id)
+      }
     }
 
     setSaving(false)
     setEditing(null)
+    setPendingImageFile(null)
+    setImagePreview(null)
   }
 
   async function deleteExercise(id: string) {
@@ -102,15 +157,27 @@ export default function ExercisesTab() {
             />
           </Field>
 
-          <Field label="קטגוריה">
-            <select
-              value={editing.category ?? ''}
-              onChange={e => setEditing({ ...editing, category: e.target.value })}
-              className={inputCls}
-            >
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="קטגוריה">
+              <select
+                value={editing.category ?? ''}
+                onChange={e => setEditing({ ...editing, category: e.target.value })}
+                className={inputCls}
+              >
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+            <Field label="סדר תצוגה (1–999)">
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={editing.sort_order ?? 999}
+                onChange={e => setEditing({ ...editing, sort_order: Math.min(999, Math.max(1, +e.target.value)) })}
+                className={inputCls}
+              />
+            </Field>
+          </div>
 
           <Field label="קישור סרטון (ExRx)">
             <input
@@ -119,6 +186,32 @@ export default function ExercisesTab() {
               className={inputCls}
               placeholder="https://exrx.net/..."
             />
+          </Field>
+
+          <Field label="תמונה">
+            <div className="flex items-center gap-3">
+              {imagePreview ? (
+                <img src={imagePreview} alt="" className="w-16 h-16 rounded-lg object-cover border border-gray-200 shrink-0" />
+              ) : (
+                <div className="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl shrink-0">
+                  📷
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 py-2 rounded-lg bg-gray-100 border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-200"
+              >
+                {imagePreview ? 'החלף תמונה' : 'העלה תמונה'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+            </div>
           </Field>
 
           <div className="grid grid-cols-3 gap-2">
@@ -189,10 +282,18 @@ export default function ExercisesTab() {
       <div className="flex flex-col gap-2">
         {exercises.map(ex => (
           <div key={ex.id} className="bg-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+            {ex.image_url ? (
+              <img src={ex.image_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200 shrink-0" />
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-lg shrink-0">📷</div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-gray-800 font-medium text-sm">{ex.name_he}</p>
               <p className="text-gray-400 text-xs">{ex.category}</p>
             </div>
+            <span className="text-gray-300 text-xs font-mono shrink-0">
+              {String(ex.sort_order ?? 999).padStart(3, '0')}
+            </span>
             <button
               onClick={() => openEdit(ex)}
               className="text-blue-400 hover:text-blue-600 text-sm font-medium shrink-0"

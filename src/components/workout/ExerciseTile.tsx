@@ -33,16 +33,24 @@ export default function ExerciseTile({ exercise, completedToday, onPress }: Prop
         <span className="absolute top-1 start-1 w-2 h-2 bg-green-500 rounded-full" />
       )}
 
-      <div className="flex-1 flex items-center justify-center">
-        {exercise.image_url ? (
-          <img src={exercise.image_url} alt={exercise.name_he} className="w-8 h-8 object-contain" />
-        ) : (
-          <span className="text-2xl">{cat.icon}</span>
-        )}
-      </div>
+      {exercise.image_url ? (
+        <img
+          src={exercise.image_url}
+          alt={exercise.name_he}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        <div className="flex-1 flex items-center justify-center">
+          <span className="text-3xl">{cat.icon}</span>
+        </div>
+      )}
 
-      <div className="bg-white/50 px-1 py-1 w-full">
-        <p className="text-gray-800 font-semibold text-center leading-tight line-clamp-2" style={{ fontSize: '10px' }}>
+      {/* Label pinned to bottom */}
+      <div className={`absolute bottom-0 left-0 right-0 px-1 py-1.5 ${exercise.image_url ? 'bg-black/55' : 'bg-white/60'}`}>
+        <p
+          className={`font-bold text-center leading-tight line-clamp-2 ${exercise.image_url ? 'text-white' : 'text-gray-800'}`}
+          style={{ fontSize: '12px' }}
+        >
           {exercise.name_he}
         </p>
       </div>

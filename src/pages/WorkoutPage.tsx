@@ -14,21 +14,39 @@ interface Props {
   isAdmin: boolean
 }
 
-function getTodayStart() {
-  const d = new Date()
+function startOfDay(date: Date): string {
+  const d = new Date(date)
   d.setHours(0, 0, 0, 0)
   return d.toISOString()
 }
 
+function endOfDay(date: Date): string {
+  const d = new Date(date)
+  d.setHours(23, 59, 59, 999)
+  return d.toISOString()
+}
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
 export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props) {
   const [exercises, setExercises] = useState<ExerciseUser[]>([])
-  const [todayLogs, setTodayLogs] = useState<WorkoutLog[]>([])
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [viewLogs, setViewLogs] = useState<WorkoutLog[]>([])
   const [selected, setSelected] = useState<ExerciseUser | null>(null)
   const [managing, setManaging] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const fetchData = useCallback(async () => {
+  const isToday = isSameDay(selectedDate, new Date())
+
+  // ── Fetch exercises (once) ─────────────────────────────────
+  const fetchExercises = useCallback(async () => {
     // Seed personal library on first login
     const { data: existing } = await supabase
       .from('exercises_user')
@@ -63,33 +81,63 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
       }
     }
 
-    const [{ data: exData }, { data: logsData }] = await Promise.all([
-      supabase
-        .from('exercises_user')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .order('sort_order'),
-      supabase
-        .from('workout_logs')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('logged_at', getTodayStart()),
-    ])
+    const { data: exData } = await supabase
+      .from('exercises_user')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('name_he')
 
     setExercises(exData ?? [])
-    setTodayLogs(logsData ?? [])
     setLoading(false)
   }, [userId])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // ── Fetch logs for a specific day ─────────────────────────
+  const fetchLogsForDate = useCallback(async (date: Date) => {
+    const { data } = await supabase
+      .from('workout_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('logged_at', startOfDay(date))
+      .lte('logged_at', endOfDay(date))
+    setViewLogs(data ?? [])
+  }, [userId])
 
+  useEffect(() => { fetchExercises() }, [fetchExercises])
+  useEffect(() => { fetchLogsForDate(selectedDate) }, [fetchLogsForDate, selectedDate])
+
+  // ── Date navigation ────────────────────────────────────────
+  function goBack() {
+    setSelectedDate(d => {
+      const nd = new Date(d)
+      nd.setDate(nd.getDate() - 1)
+      return nd
+    })
+  }
+
+  function goForward() {
+    if (!isToday) {
+      setSelectedDate(d => {
+        const nd = new Date(d)
+        nd.setDate(nd.getDate() + 1)
+        return nd
+      })
+    }
+  }
+
+  // ── Log callbacks ──────────────────────────────────────────
   function handleLogged(log: WorkoutLog) {
-    setTodayLogs(prev => [...prev, log])
+    setViewLogs(prev => [...prev, log])
     setSelected(null)
   }
 
-  const loggedIds = new Set(todayLogs.map(l => l.exercise_id))
+  function handleUndo(exerciseId: string) {
+    setViewLogs(prev => prev.filter(l => l.exercise_id !== exerciseId))
+    setSelected(null)
+  }
+
+  const loggedIds = new Set(viewLogs.map(l => l.exercise_id))
 
   if (loading) {
     return (
@@ -107,65 +155,78 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return (
       <ManageExercisesPage
         userId={userId}
-        onClose={() => { setManaging(false); fetchData() }}
+        onClose={() => { setManaging(false); fetchExercises() }}
       />
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-28">
+    <div className="min-h-screen bg-gray-100 pb-10">
       {/* Top bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shadow-sm">
-        <button
-          onClick={() => setManaging(true)}
-          className="text-gray-400 hover:text-gray-600 text-xl"
-          title="ניהול תרגילים"
-        >
-          ⚙️
-        </button>
-        <span className="text-gray-700 font-bold text-base">מעקב אימונים</span>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <button
-              onClick={() => setAdminOpen(true)}
-              className="text-gray-400 hover:text-gray-600 text-xl"
-              title="ניהול מערכת"
-            >
-              🛡️
-            </button>
-          )}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="px-4 py-2 flex items-center justify-between">
           <button
-            onClick={() => supabase.auth.signOut()}
+            onClick={() => setManaging(true)}
             className="text-gray-400 hover:text-gray-600 text-xl"
-            title="התנתק"
+            title="ניהול תרגילים"
           >
-            🚪
+            ⚙️
           </button>
+          <span className="text-gray-700 font-bold text-base">מעקב אימונים</span>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <button
+                onClick={() => setAdminOpen(true)}
+                className="text-gray-400 hover:text-gray-600 text-xl"
+                title="ניהול מערכת"
+              >
+                🛡️
+              </button>
+            )}
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="text-gray-400 hover:text-gray-600 text-xl"
+              title="התנתק"
+            >
+              🚪
+            </button>
+          </div>
         </div>
+        <RestTimer defaultSeconds={restTimerSeconds} />
       </div>
 
-      <DailySummary exercises={exercises} logs={todayLogs} />
+      <DailySummary
+        exercises={exercises}
+        logs={viewLogs}
+        selectedDate={selectedDate}
+        isToday={isToday}
+        onPrev={goBack}
+        onNext={goForward}
+      />
 
-      <div className="grid grid-cols-4 gap-1.5 p-2">
+      <div className="grid grid-cols-3 gap-2 p-3">
         {exercises.map(ex => (
           <ExerciseTile
             key={ex.id}
             exercise={ex}
             completedToday={loggedIds.has(ex.id)}
-            onPress={() => setSelected(ex)}
+            onPress={() => {
+              // On today: always open. On past: only open if exercise was done that day.
+              if (isToday || loggedIds.has(ex.id)) setSelected(ex)
+            }}
           />
         ))}
       </div>
 
-      <RestTimer defaultSeconds={restTimerSeconds} />
-
       {selected && (
         <LogModal
           exercise={selected}
-          todayLogs={todayLogs.filter(l => l.exercise_id === selected.id)}
+          todayLogs={viewLogs.filter(l => l.exercise_id === selected.id)}
           userId={userId}
           onClose={() => setSelected(null)}
           onLogged={handleLogged}
+          onUndo={handleUndo}
+          readOnly={!isToday}
         />
       )}
     </div>

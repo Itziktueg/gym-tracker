@@ -8,14 +8,26 @@ interface Props {
   userId: string
   onClose: () => void
   onLogged: (log: WorkoutLog) => void
+  onUndo: (exerciseId: string) => void
+  readOnly?: boolean
 }
 
-export default function LogModal({ exercise, todayLogs, userId, onClose, onLogged }: Props) {
+export default function LogModal({ exercise, todayLogs, userId, onClose, onLogged, onUndo, readOnly = false }: Props) {
   const lastLog = todayLogs[todayLogs.length - 1]
   const [sets, setSets] = useState(lastLog?.sets_completed ?? exercise.default_sets)
   const [reps, setReps] = useState(lastLog?.reps_completed ?? exercise.default_reps)
   const [weight, setWeight] = useState(lastLog?.weight ?? exercise.default_weight)
   const [loading, setLoading] = useState(false)
+  const [undoing, setUndoing] = useState(false)
+
+  async function handleUndo() {
+    if (!confirm('לבטל את ביצוע התרגיל להיום?')) return
+    setUndoing(true)
+    const ids = todayLogs.map(l => l.id)
+    await supabase.from('workout_logs').delete().in('id', ids)
+    onUndo(exercise.id)
+    setUndoing(false)
+  }
 
   async function handleLog() {
     setLoading(true)
@@ -72,7 +84,7 @@ export default function LogModal({ exercise, todayLogs, userId, onClose, onLogge
         {todayLogs.length > 0 && (
           <div className="mb-5 bg-gray-100 rounded-2xl p-3">
             <p className="text-gray-500 text-xs text-center mb-2">סטים שבוצעו היום</p>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-2 justify-center mb-3">
               {todayLogs.map((log, i) => (
                 <span
                   key={log.id}
@@ -82,23 +94,40 @@ export default function LogModal({ exercise, todayLogs, userId, onClose, onLogge
                 </span>
               ))}
             </div>
+            {!readOnly && (
+              <button
+                onClick={handleUndo}
+                disabled={undoing}
+                className="w-full py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 text-sm font-medium disabled:opacity-50"
+              >
+                {undoing ? '...' : '↩ בטל ביצוע תרגיל'}
+              </button>
+            )}
           </div>
         )}
 
-        {/* Inputs */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <NumInput label="סטים"      value={sets}   onChange={setSets}   min={1} step={1} />
-          <NumInput label="חזרות"     value={reps}   onChange={setReps}   min={1} step={1} />
-          <NumInput label='משקל ק"ג'  value={weight} onChange={setWeight} min={0} step={2.5} />
-        </div>
+        {readOnly ? (
+          todayLogs.length === 0 && (
+            <p className="text-center text-gray-400 text-sm py-4">לא בוצע תרגיל זה ביום זה</p>
+          )
+        ) : (
+          <>
+            {/* Inputs */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <NumInput label="סטים"      value={sets}   onChange={setSets}   min={1} step={1} />
+              <NumInput label="חזרות"     value={reps}   onChange={setReps}   min={1} step={1} />
+              <NumInput label='משקל ק"ג'  value={weight} onChange={setWeight} min={0} step={2.5} />
+            </div>
 
-        <button
-          onClick={handleLog}
-          disabled={loading}
-          className="w-full bg-green-600 hover:bg-green-500 active:bg-green-700 disabled:opacity-50 text-white font-bold rounded-2xl py-4 text-lg transition-colors"
-        >
-          {loading ? '...' : 'רשום סט ✓'}
-        </button>
+            <button
+              onClick={handleLog}
+              disabled={loading}
+              className="w-full bg-green-600 hover:bg-green-500 active:bg-green-700 disabled:opacity-50 text-white font-bold rounded-2xl py-4 text-lg transition-colors"
+            >
+              {loading ? '...' : 'רשום סט ✓'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
