@@ -363,13 +363,20 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
                 className={inputCls} placeholder="Exercise name in English" />
             </Field>
 
-            <Field label="קטגוריה">
-              <select value={formData.category}
-                onChange={e => setFormData({ ...formData, category: e.target.value })}
-                className={inputCls}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="קטגוריה">
+                <select value={formData.category}
+                  onChange={e => setFormData({ ...formData, category: e.target.value })}
+                  className={inputCls}>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </Field>
+              <Field label="סדר תצוגה (1–999)">
+                <input type="number" min={1} max={999} value={formData.sort_order}
+                  onChange={e => setFormData({ ...formData, sort_order: +e.target.value })}
+                  className={inputCls} />
+              </Field>
+            </div>
 
             <Field label="קישור סרטון (ExRx)">
               <input value={formData.video_url}

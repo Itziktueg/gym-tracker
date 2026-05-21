@@ -157,15 +157,27 @@ export default function ExercisesTab() {
             />
           </Field>
 
-          <Field label="קטגוריה">
-            <select
-              value={editing.category ?? ''}
-              onChange={e => setEditing({ ...editing, category: e.target.value })}
-              className={inputCls}
-            >
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="קטגוריה">
+              <select
+                value={editing.category ?? ''}
+                onChange={e => setEditing({ ...editing, category: e.target.value })}
+                className={inputCls}
+              >
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+            <Field label="סדר תצוגה (1–999)">
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={editing.sort_order ?? 999}
+                onChange={e => setEditing({ ...editing, sort_order: +e.target.value })}
+                className={inputCls}
+              />
+            </Field>
+          </div>
 
           <Field label="קישור סרטון (ExRx)">
             <input
