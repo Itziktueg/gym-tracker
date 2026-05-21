@@ -116,7 +116,7 @@ export default function LogModal({ exercise, todayLogs, userId, onClose, onLogge
             <div className="grid grid-cols-3 gap-4 mb-6">
               <NumInput label="סטים"      value={sets}   onChange={setSets}   min={1} step={1} />
               <NumInput label="חזרות"     value={reps}   onChange={setReps}   min={1} step={1} />
-              <NumInput label='משקל ק"ג'  value={weight} onChange={setWeight} min={0} step={2.5} />
+              <NumInput label='משקל ק"ג'  value={weight} onChange={setWeight} min={0} step={1} />
             </div>
 
             <button

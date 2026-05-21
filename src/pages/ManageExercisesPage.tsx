@@ -416,7 +416,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
                   className={inputCls} />
               </Field>
               <Field label='משקל ק"ג'>
-                <input type="number" min={0} step={2.5} value={formData.default_weight}
+                <input type="number" min={0} step={1} value={formData.default_weight}
                   onChange={e => setFormData({ ...formData, default_weight: +e.target.value })}
                   className={inputCls} />
               </Field>

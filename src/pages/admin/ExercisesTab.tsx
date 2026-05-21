@@ -226,7 +226,7 @@ export default function ExercisesTab() {
                 className={inputCls} />
             </Field>
             <Field label='משקל ק"ג'>
-              <input type="number" min={0} step={2.5} value={editing.default_weight}
+              <input type="number" min={0} step={1} value={editing.default_weight}
                 onChange={e => setEditing({ ...editing, default_weight: +e.target.value })}
                 className={inputCls} />
             </Field>
