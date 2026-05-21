@@ -363,20 +363,13 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
                 className={inputCls} placeholder="Exercise name in English" />
             </Field>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="קטגוריה">
-                <select value={formData.category}
-                  onChange={e => setFormData({ ...formData, category: e.target.value })}
-                  className={inputCls}>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </Field>
-              <Field label="סדר תצוגה (1–999)">
-                <input type="number" min={1} max={999} value={formData.sort_order}
-                  onChange={e => setFormData({ ...formData, sort_order: Math.min(999, Math.max(1, +e.target.value || 999)) })}
-                  className={inputCls} />
-              </Field>
-            </div>
+            <Field label="קטגוריה">
+              <select value={formData.category}
+                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                className={inputCls}>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
 
             <Field label="קישור סרטון (ExRx)">
               <input value={formData.video_url}
@@ -453,7 +446,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
       </div>
 
       <p className="text-gray-400 text-xs text-center mt-3 mb-1">
-        ✏️ עריכה · 📷 תמונה · 👁 הסתרה · מספר = סדר תצוגה
+        ✏️ עריכה · 📷 תמונה · 👁 הסתרה
       </p>
 
       <input ref={listFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleListFileChange} />
@@ -462,11 +455,6 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
         {exercises.map(ex => (
           <div key={ex.id}
             className={`bg-white rounded-xl px-3 py-3 flex items-center gap-2 shadow-sm ${!ex.is_active ? 'opacity-40' : ''}`}>
-
-            {/* Sort order badge */}
-            <span className="text-xs font-mono text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 shrink-0 w-9 text-center">
-              {String(ex.sort_order).padStart(3, '0')}
-            </span>
 
             {/* Thumbnail */}
             <button onClick={() => handleImageClick(ex.id)} disabled={uploadingId === ex.id}

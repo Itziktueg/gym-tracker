@@ -157,27 +157,15 @@ export default function ExercisesTab() {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="קטגוריה">
-              <select
-                value={editing.category ?? ''}
-                onChange={e => setEditing({ ...editing, category: e.target.value })}
-                className={inputCls}
-              >
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
-            <Field label="סדר תצוגה (1–999)">
-              <input
-                type="number"
-                min={1}
-                max={999}
-                value={editing.sort_order ?? 999}
-                onChange={e => setEditing({ ...editing, sort_order: Math.min(999, Math.max(1, +e.target.value)) })}
-                className={inputCls}
-              />
-            </Field>
-          </div>
+          <Field label="קטגוריה">
+            <select
+              value={editing.category ?? ''}
+              onChange={e => setEditing({ ...editing, category: e.target.value })}
+              className={inputCls}
+            >
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
 
           <Field label="קישור סרטון (ExRx)">
             <input
@@ -291,9 +279,6 @@ export default function ExercisesTab() {
               <p className="text-gray-800 font-medium text-sm">{ex.name_he}</p>
               <p className="text-gray-400 text-xs">{ex.category}</p>
             </div>
-            <span className="text-gray-300 text-xs font-mono shrink-0">
-              {String(ex.sort_order ?? 999).padStart(3, '0')}
-            </span>
             <button
               onClick={() => openEdit(ex)}
               className="text-blue-400 hover:text-blue-600 text-sm font-medium shrink-0"
