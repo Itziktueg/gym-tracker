@@ -56,6 +56,9 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
   const [formImagePreview, setFormImagePreview] = useState<string | null>(null)
   const formFileInputRef = useRef<HTMLInputElement>(null)
 
+  // Library picker modal
+  const [pickerOpen, setPickerOpen] = useState(false)
+
   // Scroll-to after edit/delete
   const [scrollToId, setScrollToId] = useState<string | null>(null)
   useEffect(() => {
@@ -367,34 +370,96 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
             {/* Global library picker — only on new exercise */}
             {isNew && (
               <Field label="בחר מהספרייה הכללית">
-                <select
-                  value={selectedGlobalId ?? ''}
-                  onChange={e => handleGlobalPick(e.target.value)}
-                  className={inputCls}
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className={inputCls + ' text-right flex items-center justify-between'}
                 >
-                  <option value="">— תרגיל חדש מאפס —</option>
-                  {CATEGORIES.map(cat => {
-                    const inCat = globalLib
-                      .filter(g => g.category === cat)
-                      .sort((a, b) => a.name_he.localeCompare(b.name_he, 'he'))
-                    if (inCat.length === 0) return null
-                    return (
-                      <optgroup key={cat} label={cat}>
-                        {inCat.map(g => (
-                          <option key={g.id} value={g.id} disabled={ownedGlobalIds.has(g.id)}>
-                            {g.name_he}{ownedGlobalIds.has(g.id) ? ' ✓' : ''}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )
-                  })}
-                </select>
+                  <span className={selectedGlobalId ? 'text-gray-800' : 'text-gray-400'}>
+                    {selectedGlobalId
+                      ? globalLib.find(g => g.id === selectedGlobalId)?.name_he
+                      : '— תרגיל חדש מאפס —'}
+                  </span>
+                  <span className="text-gray-400 text-xs mr-1">▼</span>
+                </button>
                 {selectedGlobalId && (
                   <p className="text-xs text-blue-500 mt-0.5">
                     הפרטים הועתקו — ניתן לערוך לפני השמירה
                   </p>
                 )}
               </Field>
+            )}
+
+            {/* Picker modal */}
+            {pickerOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-end justify-center bg-black/60"
+                onClick={() => setPickerOpen(false)}
+              >
+                <div
+                  className="w-full max-w-lg bg-gray-50 rounded-t-3xl shadow-2xl flex flex-col"
+                  style={{ maxHeight: '80vh' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-3 bg-white rounded-t-3xl border-b border-gray-200">
+                    <button onClick={() => setPickerOpen(false)} className="text-gray-400 text-sm">ביטול</button>
+                    <span className="text-gray-800 font-bold text-base">בחר תרגיל</span>
+                    <button
+                      onClick={() => { handleGlobalPick(''); setPickerOpen(false) }}
+                      className="text-blue-500 text-sm"
+                    >
+                      מאפס
+                    </button>
+                  </div>
+
+                  {/* List */}
+                  <div className="overflow-y-auto flex-1 pb-6">
+                    {CATEGORIES.map(cat => {
+                      const inCat = globalLib
+                        .filter(g => g.category === cat)
+                        .sort((a, b) => a.name_he.localeCompare(b.name_he, 'he'))
+                      if (inCat.length === 0) return null
+                      const colors: Record<string, string> = {
+                        'פלג גוף תחתון': 'bg-blue-500',
+                        'גב וכתפיים':    'bg-violet-500',
+                        'חזה וזרועות':   'bg-orange-500',
+                        'בטן וליבה':     'bg-teal-500',
+                      }
+                      return (
+                        <div key={cat}>
+                          <div className={`${colors[cat] ?? 'bg-gray-500'} px-4 py-2`}>
+                            <span className="text-white font-bold text-sm">{cat}</span>
+                          </div>
+                          {inCat.map(g => {
+                            const owned = ownedGlobalIds.has(g.id)
+                            const selected = selectedGlobalId === g.id
+                            return (
+                              <button
+                                key={g.id}
+                                type="button"
+                                disabled={owned}
+                                onClick={() => { handleGlobalPick(g.id); setPickerOpen(false) }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 text-right
+                                  ${selected ? 'bg-blue-50' : 'bg-white'}
+                                  ${owned ? 'opacity-40' : 'active:bg-gray-50'}`}
+                              >
+                                {g.image_url
+                                  ? <img src={g.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                                  : <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg shrink-0">📷</div>
+                                }
+                                <span className="flex-1 text-gray-800 text-sm font-medium">{g.name_he}</span>
+                                {owned && <span className="text-gray-400 text-xs">✓ קיים</span>}
+                                {selected && !owned && <span className="text-blue-500 text-base">✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Divider when a global was picked */}
