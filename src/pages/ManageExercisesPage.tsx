@@ -387,8 +387,8 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
             <Field label="תמונה">
               <div className="flex items-center gap-3">
                 {formImagePreview
-                  ? <img src={formImagePreview} alt="" className="w-16 h-16 rounded-lg object-cover border border-gray-200 shrink-0" />
-                  : <div className="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl shrink-0">📷</div>
+                  ? <img src={formImagePreview} alt="" className="w-24 h-24 rounded-lg object-cover border border-gray-200 shrink-0" />
+                  : <div className="w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-2xl shrink-0">📷</div>
                 }
                 <button type="button" onClick={() => formFileInputRef.current?.click()}
                   className="flex-1 py-2 rounded-lg bg-gray-100 border border-gray-200 text-gray-600 text-sm font-medium">
