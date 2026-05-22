@@ -36,6 +36,14 @@ export default function ExercisesTab() {
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [scrollToId, setScrollToId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!scrollToId) return
+    const el = document.querySelector(`[data-id="${scrollToId}"]`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setScrollToId(null)
+  }, [scrollToId, exercises])
 
   function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -129,6 +137,7 @@ export default function ExercisesTab() {
     }
 
     setSaving(false)
+    if (!isNew && editing) setScrollToId(editing.id)
     setEditing(null)
     setPendingImageFile(null)
     setImagePreview(null)
@@ -278,7 +287,7 @@ export default function ExercisesTab() {
 
           <div className="flex gap-2 mt-1">
             <button
-              onClick={() => setEditing(null)}
+              onClick={() => { if (!isNew && editing) setScrollToId(editing.id); setEditing(null) }}
               className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-semibold"
             >
               ביטול
@@ -337,7 +346,7 @@ function SortableGlobalRow({ exercise: ex, onEdit, onDelete }: {
   }
 
   return (
-    <div ref={setNodeRef} style={style}
+    <div ref={setNodeRef} style={style} data-id={ex.id}
       className="bg-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
       {/* Drag handle */}
       <button

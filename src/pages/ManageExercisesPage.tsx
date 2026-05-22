@@ -351,7 +351,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
     return (
       <div className="min-h-screen bg-gray-100">
         <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm">
-          <button onClick={() => setFormData(null)} className="text-gray-500 text-sm font-medium">ביטול</button>
+          <button onClick={() => { if (editingId) setScrollToId(editingId); setFormData(null) }} className="text-gray-500 text-sm font-medium">ביטול</button>
           <h1 className="text-gray-800 font-bold text-lg">
             {isNew ? 'תרגיל חדש' : 'עריכת תרגיל'}
           </h1>
