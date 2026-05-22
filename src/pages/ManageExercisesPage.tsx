@@ -47,6 +47,15 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
   const [formImagePreview, setFormImagePreview] = useState<string | null>(null)
   const formFileInputRef = useRef<HTMLInputElement>(null)
 
+  // Scroll-to after edit/delete
+  const [scrollToId, setScrollToId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!scrollToId) return
+    const el = document.querySelector(`[data-id="${scrollToId}"]`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setScrollToId(null)
+  }, [scrollToId, exercises])
+
   useEffect(() => {
     Promise.all([
       supabase
@@ -98,8 +107,11 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
   // ── List: delete ───────────────────────────────────────────
   async function deleteExercise(id: string) {
     if (!confirm('למחוק תרגיל זה מהרשימה האישית שלך?')) return
+    const idx = exercises.findIndex(e => e.id === id)
+    const nextId = exercises[idx + 1]?.id ?? exercises[idx - 1]?.id ?? null
     await supabase.from('exercises_user').delete().eq('id', id)
     setExercises(prev => prev.filter(e => e.id !== id))
+    if (nextId) setScrollToId(nextId)
   }
 
   // ── List: toggle visibility ────────────────────────────────
@@ -287,6 +299,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
     }
 
     setSaving(false)
+    if (editingId) setScrollToId(editingId)
     setFormData(null)
     setEditingId(null)
     setSelectedGlobalId(null)
@@ -460,7 +473,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
 
       <div className="flex flex-col gap-1 p-3">
         {exercises.map(ex => (
-          <div key={ex.id}
+          <div key={ex.id} data-id={ex.id}
             className={`bg-white rounded-xl px-3 py-3 flex items-center gap-2 shadow-sm ${!ex.is_active ? 'opacity-40' : ''}`}>
 
             {/* Thumbnail */}
