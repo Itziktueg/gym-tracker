@@ -6,10 +6,40 @@ import AuthPage from './pages/AuthPage'
 import WorkoutPage from './pages/WorkoutPage'
 
 export default function App() {
-  const [session, setSession] = useState<Session | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [session, setSession]   = useState<Session | null>(null)
+  const [profile, setProfile]   = useState<Profile | null>(null)
+  const [loading, setLoading]   = useState(true)
+  const [confirmExit, setConfirmExit] = useState(false)
 
+  // ── Back-button exit guard (only when logged in) ───────────
+  useEffect(() => {
+    if (!session) return
+
+    // Push a dummy state so the back button hits us first
+    window.history.pushState({ gymTracker: true }, '')
+
+    function handlePopState() {
+      // Re-push so we stay here while the modal is open
+      window.history.pushState({ gymTracker: true }, '')
+      setConfirmExit(true)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [session])
+
+  function handleStay() {
+    setConfirmExit(false)
+  }
+
+  function handleLeave() {
+    setConfirmExit(false)
+    // Remove our dummy state and go back for real
+    window.removeEventListener('popstate', () => {})
+    window.history.go(-2)
+  }
+
+  // ── Auth ───────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
@@ -47,10 +77,37 @@ export default function App() {
   if (!session) return <AuthPage />
 
   return (
-    <WorkoutPage
-      userId={session.user.id}
-      restTimerSeconds={profile?.rest_timer_seconds ?? 90}
-      isAdmin={profile?.role === 'admin'}
-    />
+    <>
+      <WorkoutPage
+        userId={session.user.id}
+        restTimerSeconds={profile?.rest_timer_seconds ?? 90}
+        isAdmin={profile?.role === 'admin'}
+      />
+
+      {/* Exit confirmation modal */}
+      {confirmExit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col gap-5">
+            <p className="text-gray-800 font-bold text-lg text-center">
+              האם אתה רוצה לצאת מהאפליקציה?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleStay}
+                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-base"
+              >
+                לא
+              </button>
+              <button
+                onClick={handleLeave}
+                className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold text-base"
+              >
+                כן
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
