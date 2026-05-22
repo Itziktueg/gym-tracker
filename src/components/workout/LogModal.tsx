@@ -6,13 +6,13 @@ interface Props {
   exercise: ExerciseUser
   todayLogs: WorkoutLog[]
   userId: string
+  logDate: Date
   onClose: () => void
   onLogged: (log: WorkoutLog) => void
   onUndo: (exerciseId: string) => void
-  readOnly?: boolean
 }
 
-export default function LogModal({ exercise, todayLogs, userId, onClose, onLogged, onUndo, readOnly = false }: Props) {
+export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onLogged, onUndo }: Props) {
   const lastLog = todayLogs[todayLogs.length - 1]
   const [sets, setSets] = useState(lastLog?.sets_completed ?? exercise.default_sets)
   const [reps, setReps] = useState(lastLog?.reps_completed ?? exercise.default_reps)
@@ -31,6 +31,9 @@ export default function LogModal({ exercise, todayLogs, userId, onClose, onLogge
 
   async function handleLog() {
     setLoading(true)
+    // Use noon of the selected date to avoid timezone edge cases
+    const loggedAt = new Date(logDate)
+    loggedAt.setHours(12, 0, 0, 0)
     const { data, error } = await supabase
       .from('workout_logs')
       .insert({
@@ -39,6 +42,7 @@ export default function LogModal({ exercise, todayLogs, userId, onClose, onLogge
         sets_completed: sets,
         reps_completed: reps,
         weight: weight,
+        logged_at: loggedAt.toISOString(),
       })
       .select()
       .single()
@@ -94,40 +98,30 @@ export default function LogModal({ exercise, todayLogs, userId, onClose, onLogge
                 </span>
               ))}
             </div>
-            {!readOnly && (
-              <button
-                onClick={handleUndo}
-                disabled={undoing}
-                className="w-full py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 text-sm font-medium disabled:opacity-50"
-              >
-                {undoing ? '...' : '↩ בטל ביצוע תרגיל'}
-              </button>
-            )}
+            <button
+              onClick={handleUndo}
+              disabled={undoing}
+              className="w-full py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 text-sm font-medium disabled:opacity-50"
+            >
+              {undoing ? '...' : '↩ בטל ביצוע תרגיל'}
+            </button>
           </div>
         )}
 
-        {readOnly ? (
-          todayLogs.length === 0 && (
-            <p className="text-center text-gray-400 text-sm py-4">לא בוצע תרגיל זה ביום זה</p>
-          )
-        ) : (
-          <>
-            {/* Inputs */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <NumInput label="סטים"      value={sets}   onChange={setSets}   min={1} step={1} />
-              <NumInput label="חזרות"     value={reps}   onChange={setReps}   min={1} step={1} />
-              <NumInput label='משקל ק"ג'  value={weight} onChange={setWeight} min={0} step={1} />
-            </div>
+        {/* Inputs */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <NumInput label="סטים"      value={sets}   onChange={setSets}   min={1} step={1} />
+          <NumInput label="חזרות"     value={reps}   onChange={setReps}   min={1} step={1} />
+          <NumInput label='משקל ק"ג'  value={weight} onChange={setWeight} min={0} step={1} />
+        </div>
 
-            <button
-              onClick={handleLog}
-              disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-500 active:bg-green-700 disabled:opacity-50 text-white font-bold rounded-2xl py-4 text-lg transition-colors"
-            >
-              {loading ? '...' : 'רשום סט ✓'}
-            </button>
-          </>
-        )}
+        <button
+          onClick={handleLog}
+          disabled={loading}
+          className="w-full bg-green-600 hover:bg-green-500 active:bg-green-700 disabled:opacity-50 text-white font-bold rounded-2xl py-4 text-lg transition-colors"
+        >
+          {loading ? '...' : 'רשום סט ✓'}
+        </button>
       </div>
     </div>
   )

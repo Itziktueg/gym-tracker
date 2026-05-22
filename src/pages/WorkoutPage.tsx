@@ -210,10 +210,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             key={ex.id}
             exercise={ex}
             completedToday={loggedIds.has(ex.id)}
-            onPress={() => {
-              // On today: always open. On past: only open if exercise was done that day.
-              if (isToday || loggedIds.has(ex.id)) setSelected(ex)
-            }}
+            onPress={() => setSelected(ex)}
           />
         ))}
       </div>
@@ -223,10 +220,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           exercise={selected}
           todayLogs={viewLogs.filter(l => l.exercise_id === selected.id)}
           userId={userId}
+          logDate={selectedDate}
           onClose={() => setSelected(null)}
           onLogged={handleLogged}
           onUndo={handleUndo}
-          readOnly={!isToday}
         />
       )}
     </div>
