@@ -465,7 +465,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
 
             {/* Thumbnail */}
             <button onClick={() => handleImageClick(ex.id)} disabled={uploadingId === ex.id}
-              className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200 shrink-0"
+              className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200 shrink-0"
               title="העלה תמונה">
               {uploadingId === ex.id
                 ? <span className="text-xs text-gray-400">...</span>

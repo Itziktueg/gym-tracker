@@ -283,9 +283,9 @@ export default function ExercisesTab() {
         {exercises.map(ex => (
           <div key={ex.id} className="bg-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
             {ex.image_url ? (
-              <img src={ex.image_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200 shrink-0" />
+              <img src={ex.image_url} alt="" className="w-16 h-16 rounded-lg object-cover border border-gray-200 shrink-0" />
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-lg shrink-0">📷</div>
+              <div className="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-lg shrink-0">📷</div>
             )}
             <div className="flex-1 min-w-0">
               <p className="text-gray-800 font-medium text-sm">{ex.name_he}</p>
