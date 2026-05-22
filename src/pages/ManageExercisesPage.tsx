@@ -373,11 +373,21 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
                   className={inputCls}
                 >
                   <option value="">— תרגיל חדש מאפס —</option>
-                  {globalLib.map(g => (
-                    <option key={g.id} value={g.id} disabled={ownedGlobalIds.has(g.id)}>
-                      {g.name_he}{ownedGlobalIds.has(g.id) ? ' ✓' : ''}
-                    </option>
-                  ))}
+                  {CATEGORIES.map(cat => {
+                    const inCat = globalLib
+                      .filter(g => g.category === cat)
+                      .sort((a, b) => a.name_he.localeCompare(b.name_he, 'he'))
+                    if (inCat.length === 0) return null
+                    return (
+                      <optgroup key={cat} label={cat}>
+                        {inCat.map(g => (
+                          <option key={g.id} value={g.id} disabled={ownedGlobalIds.has(g.id)}>
+                            {g.name_he}{ownedGlobalIds.has(g.id) ? ' ✓' : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )
+                  })}
                 </select>
                 {selectedGlobalId && (
                   <p className="text-xs text-blue-500 mt-0.5">
