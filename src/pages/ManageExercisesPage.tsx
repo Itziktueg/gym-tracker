@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ExerciseUser, ExerciseGlobal } from '../types/database'
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, verticalListSortingStrategy,
+  useSortable, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const CATEGORIES = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
 
@@ -305,6 +314,25 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
     setSelectedGlobalId(null)
   }
 
+  // ── Drag and drop ─────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 5 } }),
+  )
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = exercises.findIndex(e => e.id === active.id)
+    const newIndex = exercises.findIndex(e => e.id === over.id)
+    const reordered = arrayMove(exercises, oldIndex, newIndex).map((e, i) => ({ ...e, sort_order: i + 1 }))
+    setExercises(reordered)
+    // Batch update DB
+    await Promise.all(
+      reordered.map(e => supabase.from('exercises_user').update({ sort_order: e.sort_order }).eq('id', e.id))
+    )
+  }
+
   // ── Render: loading ────────────────────────────────────────
   if (loading) {
     return (
@@ -471,44 +499,86 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
 
       <input ref={listFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleListFileChange} />
 
-      <div className="flex flex-col gap-1 p-3">
-        {exercises.map(ex => (
-          <div key={ex.id} data-id={ex.id}
-            className={`bg-white rounded-xl px-3 py-3 flex items-center gap-2 shadow-sm ${!ex.is_active ? 'opacity-40' : ''}`}>
-
-            {/* Thumbnail */}
-            <button onClick={() => handleImageClick(ex.id)} disabled={uploadingId === ex.id}
-              className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200 shrink-0"
-              title="העלה תמונה">
-              {uploadingId === ex.id
-                ? <span className="text-xs text-gray-400">...</span>
-                : ex.image_url
-                  ? <><img src={ex.image_url} alt="" className="w-full h-full object-cover" />
-                      <span className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 text-white text-xs">📷</span></>
-                  : <span className="text-lg">📷</span>
-              }
-            </button>
-
-            {/* Name */}
-            <div className="flex-1 min-w-0">
-              <p className="text-gray-800 font-medium text-sm truncate">{ex.name_he}</p>
-              <p className="text-gray-400 text-xs">{ex.category}{ex.is_bilateral ? ' · דו-צדדי' : ''}</p>
-            </div>
-
-            {/* Edit */}
-            <button onClick={() => openEdit(ex)} className="text-blue-400 hover:text-blue-600 text-lg shrink-0" title="עריכה">✏️</button>
-
-            {/* Delete */}
-            <button onClick={() => deleteExercise(ex.id)} className="text-red-400 hover:text-red-600 text-lg shrink-0" title="מחק">🗑</button>
-
-            {/* Toggle */}
-            <button onClick={() => toggleActive(ex.id, ex.is_active)}
-              className={`text-xl shrink-0 ${ex.is_active ? 'text-gray-600' : 'text-gray-300'}`}>
-              {ex.is_active ? '👁' : '🙈'}
-            </button>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={exercises.map(e => e.id)} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-1 p-3">
+            {exercises.map(ex => (
+              <SortableExerciseRow
+                key={ex.id}
+                exercise={ex}
+                uploadingId={uploadingId}
+                onImageClick={handleImageClick}
+                onEdit={openEdit}
+                onDelete={deleteExercise}
+                onToggle={toggleActive}
+              />
+            ))}
           </div>
-        ))}
+        </SortableContext>
+      </DndContext>
+    </div>
+  )
+}
+
+function SortableExerciseRow({ exercise: ex, uploadingId, onImageClick, onEdit, onDelete, onToggle }: {
+  exercise: ExerciseUser
+  uploadingId: string | null
+  onImageClick: (id: string) => void
+  onEdit: (ex: ExerciseUser) => void
+  onDelete: (id: string) => void
+  onToggle: (id: string, current: boolean) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ex.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} data-id={ex.id}
+      className={`bg-white rounded-xl px-3 py-3 flex items-center gap-2 shadow-sm ${!ex.is_active ? 'opacity-40' : ''}`}>
+
+      {/* Drag handle */}
+      <button
+        {...attributes} {...listeners}
+        className="text-gray-300 hover:text-gray-500 text-xl shrink-0 cursor-grab active:cursor-grabbing touch-none px-1"
+        title="גרור לשינוי סדר"
+      >
+        ☰
+      </button>
+
+      {/* Thumbnail */}
+      <button onClick={() => onImageClick(ex.id)} disabled={uploadingId === ex.id}
+        className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200 shrink-0"
+        title="העלה תמונה">
+        {uploadingId === ex.id
+          ? <span className="text-xs text-gray-400">...</span>
+          : ex.image_url
+            ? <><img src={ex.image_url} alt="" className="w-full h-full object-cover" />
+                <span className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 text-white text-xs">📷</span></>
+            : <span className="text-lg">📷</span>
+        }
+      </button>
+
+      {/* Name */}
+      <div className="flex-1 min-w-0">
+        <p className="text-gray-800 font-medium text-sm truncate">{ex.name_he}</p>
+        <p className="text-gray-400 text-xs">{ex.category}{ex.is_bilateral ? ' · דו-צדדי' : ''}</p>
       </div>
+
+      {/* Edit */}
+      <button onClick={() => onEdit(ex)} className="text-blue-400 hover:text-blue-600 text-lg shrink-0" title="עריכה">✏️</button>
+
+      {/* Delete */}
+      <button onClick={() => onDelete(ex.id)} className="text-red-400 hover:text-red-600 text-lg shrink-0" title="מחק">🗑</button>
+
+      {/* Toggle */}
+      <button onClick={() => onToggle(ex.id, ex.is_active)}
+        className={`text-xl shrink-0 ${ex.is_active ? 'text-gray-600' : 'text-gray-300'}`}>
+        {ex.is_active ? '👁' : '🙈'}
+      </button>
     </div>
   )
 }

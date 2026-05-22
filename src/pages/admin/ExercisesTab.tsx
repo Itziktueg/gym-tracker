@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { ExerciseGlobal } from '../../types/database'
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, verticalListSortingStrategy,
+  useSortable, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const CATEGORIES = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
 
@@ -129,6 +138,23 @@ export default function ExercisesTab() {
     if (!confirm('למחוק תרגיל זה?')) return
     await supabase.from('exercises_global').delete().eq('id', id)
     setExercises(prev => prev.filter(e => e.id !== id))
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 5 } }),
+  )
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = exercises.findIndex(e => e.id === active.id)
+    const newIndex = exercises.findIndex(e => e.id === over.id)
+    const reordered = arrayMove(exercises, oldIndex, newIndex).map((e, i) => ({ ...e, sort_order: i + 1 }))
+    setExercises(reordered)
+    await Promise.all(
+      reordered.map(e => supabase.from('exercises_global').update({ sort_order: e.sort_order }).eq('id', e.id))
+    )
   }
 
   if (loading) return <p className="text-center text-gray-400 mt-8">טוען...</p>
@@ -279,33 +305,59 @@ export default function ExercisesTab() {
         + תרגיל חדש
       </button>
 
-      <div className="flex flex-col gap-2">
-        {exercises.map(ex => (
-          <div key={ex.id} className="bg-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
-            {ex.image_url ? (
-              <img src={ex.image_url} alt="" className="w-24 h-24 rounded-lg object-cover border border-gray-200 shrink-0" />
-            ) : (
-              <div className="w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-lg shrink-0">📷</div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-gray-800 font-medium text-sm">{ex.name_he}</p>
-              <p className="text-gray-400 text-xs">{ex.category}</p>
-            </div>
-            <button
-              onClick={() => openEdit(ex)}
-              className="text-blue-400 hover:text-blue-600 text-sm font-medium shrink-0"
-            >
-              עריכה
-            </button>
-            <button
-              onClick={() => deleteExercise(ex.id)}
-              className="text-red-400 hover:text-red-600 text-sm shrink-0"
-            >
-              🗑
-            </button>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={exercises.map(e => e.id)} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-2">
+            {exercises.map(ex => (
+              <SortableGlobalRow
+                key={ex.id}
+                exercise={ex}
+                onEdit={openEdit}
+                onDelete={deleteExercise}
+              />
+            ))}
           </div>
-        ))}
+        </SortableContext>
+      </DndContext>
+    </div>
+  )
+}
+
+function SortableGlobalRow({ exercise: ex, onEdit, onDelete }: {
+  exercise: ExerciseGlobal
+  onEdit: (ex: ExerciseGlobal) => void
+  onDelete: (id: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ex.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}
+      className="bg-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+      {/* Drag handle */}
+      <button
+        {...attributes} {...listeners}
+        className="text-gray-300 hover:text-gray-500 text-xl shrink-0 cursor-grab active:cursor-grabbing touch-none px-1"
+        title="גרור לשינוי סדר"
+      >
+        ☰
+      </button>
+      {ex.image_url ? (
+        <img src={ex.image_url} alt="" className="w-24 h-24 rounded-lg object-cover border border-gray-200 shrink-0" />
+      ) : (
+        <div className="w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-lg shrink-0">📷</div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-gray-800 font-medium text-sm">{ex.name_he}</p>
+        <p className="text-gray-400 text-xs">{ex.category}</p>
       </div>
+      <button onClick={() => onEdit(ex)} className="text-blue-400 hover:text-blue-600 text-sm font-medium shrink-0">עריכה</button>
+      <button onClick={() => onDelete(ex.id)} className="text-red-400 hover:text-red-600 text-sm shrink-0">🗑</button>
     </div>
   )
 }
