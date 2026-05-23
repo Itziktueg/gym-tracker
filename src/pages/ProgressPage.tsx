@@ -139,6 +139,27 @@ export default function ProgressPage({ userId, onClose }: Props) {
 
                 return (
                   <>
+                    {/* Dates sub-header row above each category */}
+                    {showCategoryHeader && (
+                      <tr key={`dates-${ex.category}`}>
+                        <td
+                          className="sticky left-0 z-20 bg-gray-700 border-b border-r border-gray-600 text-gray-400 text-xs font-medium px-2 py-1"
+                          style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
+                        >
+                          תרגיל
+                        </td>
+                        {dates.map(d => (
+                          <td
+                            key={d}
+                            className="bg-gray-700 border-b border-r border-gray-600 text-gray-300 text-xs font-medium px-1 py-1 text-center"
+                            style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
+                          >
+                            {formatDate(d)}
+                          </td>
+                        ))}
+                      </tr>
+                    )}
+
                     {/* Category divider row */}
                     {showCategoryHeader && (
                       <tr key={`cat-${ex.category}`}>
