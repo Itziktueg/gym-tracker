@@ -110,19 +110,19 @@ export default function ProgressPage({ userId, onClose }: Props) {
         <div className="overflow-auto flex-1">
           <table className="border-collapse" style={{ minWidth: NAME_WIDTH + COL_WIDTH * dates.length }}>
             <thead>
-              <tr className="sticky top-0 z-20">
-                {/* Top-left corner */}
+              <tr>
+                {/* Top-left corner — sticky left AND top */}
                 <th
-                  className="sticky left-0 z-30 bg-gray-800 border-b border-r border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
+                  className="sticky left-0 top-0 z-30 bg-gray-800 border-b border-r border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
                   style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                 >
                   תרגיל
                 </th>
-                {/* Date columns */}
+                {/* Date columns — sticky top only */}
                 {dates.map(d => (
                   <th
                     key={d}
-                    className="bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
+                    className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
                     style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                   >
                     {formatDate(d)}
