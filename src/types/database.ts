@@ -64,6 +64,7 @@ export interface WorkoutLog {
   sets_completed: number
   reps_completed: number
   weight: number
+  intensity: number
   notes: string | null
   logged_at: string
 }

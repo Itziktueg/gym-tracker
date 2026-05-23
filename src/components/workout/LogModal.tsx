@@ -49,11 +49,13 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
   async function handleSubmit() {
     setLoading(true)
 
+    const intensity = sets * reps * weight
+
     if (editingLog) {
       // UPDATE existing log
       const { data, error } = await supabase
         .from('workout_logs')
-        .update({ sets_completed: sets, reps_completed: reps, weight })
+        .update({ sets_completed: sets, reps_completed: reps, weight, intensity })
         .eq('id', editingLog.id)
         .select()
         .single()
@@ -74,6 +76,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           sets_completed: sets,
           reps_completed: reps,
           weight,
+          intensity,
           logged_at:      loggedAt.toISOString(),
         })
         .select()
