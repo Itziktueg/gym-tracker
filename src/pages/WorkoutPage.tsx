@@ -137,6 +137,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     setSelected(null)
   }
 
+  function handleUpdated(log: WorkoutLog) {
+    setViewLogs(prev => prev.map(l => l.id === log.id ? log : l))
+  }
+
   const loggedIds = new Set(viewLogs.map(l => l.exercise_id))
 
   if (loading) {
@@ -224,6 +228,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           onClose={() => setSelected(null)}
           onLogged={handleLogged}
           onUndo={handleUndo}
+          onUpdated={handleUpdated}
         />
       )}
     </div>

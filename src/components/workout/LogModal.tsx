@@ -10,15 +10,32 @@ interface Props {
   onClose: () => void
   onLogged: (log: WorkoutLog) => void
   onUndo: (exerciseId: string) => void
+  onUpdated: (log: WorkoutLog) => void
 }
 
-export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onLogged, onUndo }: Props) {
+export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onLogged, onUndo, onUpdated }: Props) {
   const lastLog = todayLogs[todayLogs.length - 1]
-  const [sets, setSets] = useState(lastLog?.sets_completed ?? exercise.default_sets)
-  const [reps, setReps] = useState(lastLog?.reps_completed ?? exercise.default_reps)
+  const [sets, setSets]     = useState(lastLog?.sets_completed ?? exercise.default_sets)
+  const [reps, setReps]     = useState(lastLog?.reps_completed ?? exercise.default_reps)
   const [weight, setWeight] = useState(lastLog?.weight ?? exercise.default_weight)
-  const [loading, setLoading] = useState(false)
-  const [undoing, setUndoing] = useState(false)
+  const [loading, setLoading]   = useState(false)
+  const [undoing, setUndoing]   = useState(false)
+  const [editingLog, setEditingLog] = useState<WorkoutLog | null>(null)
+
+  function handleEditLog(log: WorkoutLog) {
+    if (editingLog?.id === log.id) {
+      // Tap same log again → cancel edit, reset to defaults
+      setEditingLog(null)
+      setSets(lastLog?.sets_completed ?? exercise.default_sets)
+      setReps(lastLog?.reps_completed ?? exercise.default_reps)
+      setWeight(lastLog?.weight ?? exercise.default_weight)
+    } else {
+      setEditingLog(log)
+      setSets(log.sets_completed)
+      setReps(log.reps_completed)
+      setWeight(log.weight)
+    }
+  }
 
   async function handleUndo() {
     if (!confirm('לבטל את ביצוע התרגיל להיום?')) return
@@ -29,25 +46,42 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
     setUndoing(false)
   }
 
-  async function handleLog() {
+  async function handleSubmit() {
     setLoading(true)
-    // Use noon of the selected date to avoid timezone edge cases
-    const loggedAt = new Date(logDate)
-    loggedAt.setHours(12, 0, 0, 0)
-    const { data, error } = await supabase
-      .from('workout_logs')
-      .insert({
-        user_id: userId,
-        exercise_id: exercise.id,
-        sets_completed: sets,
-        reps_completed: reps,
-        weight: weight,
-        logged_at: loggedAt.toISOString(),
-      })
-      .select()
-      .single()
 
-    if (!error && data) onLogged(data as WorkoutLog)
+    if (editingLog) {
+      // UPDATE existing log
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .update({ sets_completed: sets, reps_completed: reps, weight })
+        .eq('id', editingLog.id)
+        .select()
+        .single()
+
+      if (!error && data) {
+        onUpdated(data as WorkoutLog)
+        setEditingLog(null)
+      }
+    } else {
+      // INSERT new log
+      const loggedAt = new Date(logDate)
+      loggedAt.setHours(12, 0, 0, 0)
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .insert({
+          user_id:        userId,
+          exercise_id:    exercise.id,
+          sets_completed: sets,
+          reps_completed: reps,
+          weight,
+          logged_at:      loggedAt.toISOString(),
+        })
+        .select()
+        .single()
+
+      if (!error && data) onLogged(data as WorkoutLog)
+    }
+
     setLoading(false)
   }
 
@@ -84,19 +118,27 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           </a>
         )}
 
-        {/* Today's previous sets */}
+        {/* Logged sets */}
         {todayLogs.length > 0 && (
           <div className="mb-5 bg-gray-100 rounded-2xl p-3">
-            <p className="text-gray-500 text-xs text-center mb-2">סטים שבוצעו היום</p>
+            <p className="text-gray-500 text-xs text-center mb-2">סטים שבוצעו — לחץ לעריכה</p>
             <div className="flex flex-wrap gap-2 justify-center mb-3">
-              {todayLogs.map((log, i) => (
-                <span
-                  key={log.id}
-                  className="bg-green-900/60 text-green-300 text-xs rounded-xl px-3 py-1.5"
-                >
-                  #{i + 1} — {log.sets_completed}×{log.reps_completed} @ {log.weight}ק״ג
-                </span>
-              ))}
+              {todayLogs.map((log, i) => {
+                const isEditing = editingLog?.id === log.id
+                return (
+                  <button
+                    key={log.id}
+                    onClick={() => handleEditLog(log)}
+                    className={`flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 transition-colors
+                      ${isEditing
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-green-900/60 text-green-300'}`}
+                  >
+                    <span>#{i + 1} — {log.sets_completed}×{log.reps_completed} @ {log.weight}ק״ג</span>
+                    <span className="text-[10px] opacity-70">{isEditing ? '✕' : '✏️'}</span>
+                  </button>
+                )
+              })}
             </div>
             <button
               onClick={handleUndo}
@@ -109,18 +151,26 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         )}
 
         {/* Inputs */}
+        {editingLog && (
+          <p className="text-center text-blue-500 text-xs mb-3 font-medium">
+            עורך סט #{todayLogs.findIndex(l => l.id === editingLog.id) + 1}
+          </p>
+        )}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <NumInput label="סטים"      value={sets}   onChange={setSets}   min={1} step={1} />
-          <NumInput label="חזרות"     value={reps}   onChange={setReps}   min={1} step={1} />
-          <NumInput label='משקל ק"ג'  value={weight} onChange={setWeight} min={0} step={1} />
+          <NumInput label="סטים"     value={sets}   onChange={setSets}   min={1} step={1} />
+          <NumInput label="חזרות"    value={reps}   onChange={setReps}   min={1} step={1} />
+          <NumInput label='משקל ק"ג' value={weight} onChange={setWeight} min={0} step={1} />
         </div>
 
         <button
-          onClick={handleLog}
+          onClick={handleSubmit}
           disabled={loading}
-          className="w-full bg-green-600 hover:bg-green-500 active:bg-green-700 disabled:opacity-50 text-white font-bold rounded-2xl py-4 text-lg transition-colors"
+          className={`w-full font-bold rounded-2xl py-4 text-lg transition-colors disabled:opacity-50 text-white
+            ${editingLog
+              ? 'bg-blue-500 hover:bg-blue-400 active:bg-blue-600'
+              : 'bg-green-600 hover:bg-green-500 active:bg-green-700'}`}
         >
-          {loading ? '...' : 'רשום סט ✓'}
+          {loading ? '...' : editingLog ? 'עדכן ✓' : 'רשום סט ✓'}
         </button>
       </div>
     </div>
