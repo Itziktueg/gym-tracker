@@ -21,12 +21,6 @@ interface ExerciseRow {
   category: string
 }
 
-interface LogEntry {
-  exercise_id: string
-  date: string        // YYYY-MM-DD
-  intensity: number
-}
-
 function formatDate(dateStr: string) {
   const d = new Date(dateStr)
   return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })
@@ -54,9 +48,6 @@ export default function ProgressPage({ userId, onClose }: Props) {
         .eq('user_id', userId)
 
       if (!logs || !exData) { setLoading(false); return }
-
-      // Build exercise map
-      const exMap = new Map<string, ExerciseRow>(exData.map(e => [e.id, e]))
 
       // Build pivot: exerciseId -> date -> total intensity
       const pivotMap: Record<string, Record<string, number>> = {}
