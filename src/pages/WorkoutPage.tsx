@@ -7,6 +7,7 @@ import RestTimer from '../components/workout/RestTimer'
 import LogModal from '../components/workout/LogModal'
 import ManageExercisesPage from './ManageExercisesPage'
 import AdminPage from './AdminPage'
+import ProgressPage from './ProgressPage'
 
 interface Props {
   userId: string
@@ -41,6 +42,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [selected, setSelected] = useState<ExerciseUser | null>(null)
   const [managing, setManaging] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
+  const [progressOpen, setProgressOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const isToday = isSameDay(selectedDate, new Date())
@@ -155,6 +157,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return <AdminPage onClose={() => setAdminOpen(false)} adminId={userId} />
   }
 
+  if (progressOpen) {
+    return <ProgressPage userId={userId} onClose={() => setProgressOpen(false)} />
+  }
+
   if (managing) {
     return (
       <ManageExercisesPage
@@ -169,13 +175,22 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
       {/* Top bar */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="px-4 py-2 flex items-center justify-between">
-          <button
-            onClick={() => setManaging(true)}
-            className="text-gray-400 hover:text-gray-600 text-xl"
-            title="ניהול תרגילים"
-          >
-            ⚙️
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setManaging(true)}
+              className="text-gray-400 hover:text-gray-600 text-xl"
+              title="ניהול תרגילים"
+            >
+              ⚙️
+            </button>
+            <button
+              onClick={() => setProgressOpen(true)}
+              className="text-gray-400 hover:text-gray-600 text-xl"
+              title="התקדמות"
+            >
+              📊
+            </button>
+          </div>
           <span className="text-gray-700 font-bold text-base">מעקב אימונים</span>
           <div className="flex items-center gap-2">
             {isAdmin && (
