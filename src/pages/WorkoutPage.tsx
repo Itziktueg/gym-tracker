@@ -131,18 +131,17 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   }
 
   // ── Log callbacks ──────────────────────────────────────────
-  function handleLogged(log: WorkoutLog) {
-    setViewLogs(prev => [...prev, log])
+  function handleSaved(exerciseId: string, newLogs: WorkoutLog[]) {
+    setViewLogs(prev => [
+      ...prev.filter(l => l.exercise_id !== exerciseId),
+      ...newLogs,
+    ])
     setSelected(null)
   }
 
   function handleUndo(exerciseId: string) {
     setViewLogs(prev => prev.filter(l => l.exercise_id !== exerciseId))
     setSelected(null)
-  }
-
-  function handleUpdated(log: WorkoutLog) {
-    setViewLogs(prev => prev.map(l => l.id === log.id ? log : l))
   }
 
   const loggedIds = new Set(viewLogs.map(l => l.exercise_id))
@@ -254,9 +253,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           userId={userId}
           logDate={selectedDate}
           onClose={() => setSelected(null)}
-          onLogged={handleLogged}
+          onSaved={handleSaved}
           onUndo={handleUndo}
-          onUpdated={handleUpdated}
         />
       )}
     </div>
