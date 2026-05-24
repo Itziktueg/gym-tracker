@@ -8,6 +8,7 @@ import LogModal from '../components/workout/LogModal'
 import ManageExercisesPage from './ManageExercisesPage'
 import AdminPage from './AdminPage'
 import ProgressPage from './ProgressPage'
+import DensityPage from './DensityPage'
 
 interface Props {
   userId: string
@@ -43,6 +44,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [managing, setManaging] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
+  const [densityOpen, setDensityOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const isToday = isSameDay(selectedDate, new Date())
@@ -161,6 +163,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return <ProgressPage userId={userId} onClose={() => setProgressOpen(false)} />
   }
 
+  if (densityOpen) {
+    return <DensityPage userId={userId} onClose={() => setDensityOpen(false)} />
+  }
+
   if (managing) {
     return (
       <ManageExercisesPage
@@ -189,6 +195,13 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
               title="התקדמות"
             >
               📊
+            </button>
+            <button
+              onClick={() => setDensityOpen(true)}
+              className="text-gray-400 hover:text-gray-600 text-xl"
+              title="צפיפות יומית"
+            >
+              📈
             </button>
           </div>
           <span className="text-gray-700 font-bold text-base">מעקב אימונים</span>
