@@ -49,7 +49,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
   async function handleSubmit() {
     setLoading(true)
 
-    const intensity = sets * reps * weight
+    const intensity = sets * reps * weight * (exercise.is_bilateral ? 2 : 1)
 
     if (editingLog) {
       // UPDATE existing log
