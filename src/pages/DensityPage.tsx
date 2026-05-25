@@ -105,7 +105,7 @@ export default function DensityPage({ userId, onClose }: Props) {
             <thead>
               <tr>
                 <th
-                  className="sticky left-0 top-0 z-30 bg-gray-800 border-b border-r border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
+                  className="sticky right-0 top-0 z-30 bg-gray-800 border-b border-l border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
                   style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                 >
                   קבוצת שריר
@@ -127,7 +127,7 @@ export default function DensityPage({ userId, onClose }: Props) {
                 <tr key={cat} className="even:bg-gray-50 odd:bg-white">
                   {/* Category name — sticky left */}
                   <td
-                    className="sticky left-0 z-10 bg-inherit border-b border-r border-gray-200 px-2 py-3"
+                    className="sticky right-0 z-10 bg-inherit border-b border-l border-gray-200 px-2 py-3"
                     style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                   >
                     <span className="flex items-center gap-1.5">
@@ -165,7 +165,7 @@ export default function DensityPage({ userId, onClose }: Props) {
               {/* Total row */}
               <tr className="bg-gray-800">
                 <td
-                  className="sticky left-0 z-10 bg-gray-800 border-t-2 border-r border-gray-600 px-2 py-3 text-white text-xs font-bold"
+                  className="sticky right-0 z-10 bg-gray-800 border-t-2 border-l border-gray-600 px-2 py-3 text-white text-xs font-bold"
                   style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                 >
                   סה״כ

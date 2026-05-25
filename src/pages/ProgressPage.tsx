@@ -113,7 +113,7 @@ export default function ProgressPage({ userId, onClose }: Props) {
               <tr>
                 {/* Top-left corner — sticky left AND top */}
                 <th
-                  className="sticky left-0 top-0 z-30 bg-gray-800 border-b border-r border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
+                  className="sticky right-0 top-0 z-30 bg-gray-800 border-b border-l border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
                   style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                 >
                   תרגיל
@@ -143,7 +143,7 @@ export default function ProgressPage({ userId, onClose }: Props) {
                     {showCategoryHeader && (
                       <tr key={`dates-${ex.category}`}>
                         <td
-                          className="sticky left-0 z-20 bg-gray-700 border-b border-r border-gray-600 text-gray-400 text-xs font-medium px-2 py-1"
+                          className="sticky right-0 z-20 bg-gray-700 border-b border-l border-gray-600 text-gray-400 text-xs font-medium px-2 py-1"
                           style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                         >
                           תרגיל
@@ -165,7 +165,7 @@ export default function ProgressPage({ userId, onClose }: Props) {
                       <tr key={`cat-${ex.category}`}>
                         <td
                           colSpan={dates.length + 1}
-                          className={`sticky left-0 ${catColor} text-white text-xs font-bold px-3 py-1`}
+                          className={`sticky right-0 ${catColor} text-white text-xs font-bold px-3 py-1`}
                         >
                           {ex.category}
                         </td>
@@ -176,7 +176,7 @@ export default function ProgressPage({ userId, onClose }: Props) {
                     <tr key={ex.id} className="even:bg-gray-50 odd:bg-white">
                       {/* Exercise name — sticky left */}
                       <td
-                        className="sticky left-0 z-10 bg-inherit border-b border-r border-gray-200 px-2 py-2 text-gray-800 text-xs font-medium"
+                        className="sticky right-0 z-10 bg-inherit border-b border-l border-gray-200 px-2 py-2 text-gray-800 text-xs font-medium"
                         style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                       >
                         {ex.name_he}
