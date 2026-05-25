@@ -164,11 +164,12 @@ export default function ProgressPage({ userId, onClose }: Props) {
                     {showCategoryHeader && (
                       <tr key={`cat-${ex.category}`}>
                         <td
-                          colSpan={dates.length + 1}
-                          className={`sticky right-0 ${catColor} text-white text-xs font-bold px-3 py-1`}
+                          className={`sticky right-0 z-10 ${catColor} text-white text-xs font-bold px-3 py-1`}
+                          style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                         >
                           {ex.category}
                         </td>
+                        <td colSpan={dates.length} className={`${catColor} py-1`} />
                       </tr>
                     )}
 
