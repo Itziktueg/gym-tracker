@@ -39,15 +39,13 @@ export default function App() {
 
   function handleLeave() {
     setConfirmExit(false)
-    // Remove the listener so it doesn't re-intercept
+    // Remove the listener so back button is no longer intercepted
     if (exitHandlerRef.current) {
       window.removeEventListener('popstate', exitHandlerRef.current)
       exitHandlerRef.current = null
     }
-    // Close the PWA window (works in standalone mode)
-    window.close()
-    // Fallback for browsers that block window.close()
-    setTimeout(() => window.history.go(-window.history.length), 100)
+    // Go back one step — on Android one more back swipe will close the app
+    window.history.go(-1)
   }
 
   // ── Auth ───────────────────────────────────────────────────
