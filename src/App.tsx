@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import type { Profile } from './types/database'
@@ -10,6 +10,7 @@ export default function App() {
   const [profile, setProfile]   = useState<Profile | null>(null)
   const [loading, setLoading]   = useState(true)
   const [confirmExit, setConfirmExit] = useState(false)
+  const exitHandlerRef = useRef<(() => void) | null>(null)
 
   // ── Back-button exit guard (only when logged in) ───────────
   useEffect(() => {
@@ -18,14 +19,18 @@ export default function App() {
     // Push a dummy state so the back button hits us first
     window.history.pushState({ gymTracker: true }, '')
 
-    function handlePopState() {
+    const handler = () => {
       // Re-push so we stay here while the modal is open
       window.history.pushState({ gymTracker: true }, '')
       setConfirmExit(true)
     }
 
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
+    exitHandlerRef.current = handler
+    window.addEventListener('popstate', handler)
+    return () => {
+      window.removeEventListener('popstate', handler)
+      exitHandlerRef.current = null
+    }
   }, [session])
 
   function handleStay() {
@@ -34,9 +39,15 @@ export default function App() {
 
   function handleLeave() {
     setConfirmExit(false)
-    // Remove our dummy state and go back for real
-    window.removeEventListener('popstate', () => {})
-    window.history.go(-2)
+    // Remove the listener so it doesn't re-intercept
+    if (exitHandlerRef.current) {
+      window.removeEventListener('popstate', exitHandlerRef.current)
+      exitHandlerRef.current = null
+    }
+    // Close the PWA window (works in standalone mode)
+    window.close()
+    // Fallback for browsers that block window.close()
+    setTimeout(() => window.history.go(-window.history.length), 100)
   }
 
   // ── Auth ───────────────────────────────────────────────────
