@@ -18,7 +18,7 @@ interface SetLine {
 }
 
 export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo }: Props) {
-  const numSets = Math.min(Math.max(exercise.default_sets, 1), 3)
+  const numSets = Math.max(exercise.default_sets, 1)
 
   const [lines, setLines] = useState<SetLine[]>(
     Array.from({ length: numSets }, () => ({
