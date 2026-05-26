@@ -4,11 +4,13 @@ import { supabase } from './lib/supabase'
 import type { Profile } from './types/database'
 import AuthPage from './pages/AuthPage'
 import WorkoutPage from './pages/WorkoutPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 export default function App() {
-  const [session, setSession]   = useState<Session | null>(null)
-  const [profile, setProfile]   = useState<Profile | null>(null)
-  const [loading, setLoading]   = useState(true)
+  const [session, setSession]         = useState<Session | null>(null)
+  const [profile, setProfile]         = useState<Profile | null>(null)
+  const [loading, setLoading]         = useState(true)
+  const [resetPassword, setResetPassword] = useState(false)
 
   // ── Auth ───────────────────────────────────────────────────
   useEffect(() => {
@@ -18,7 +20,10 @@ export default function App() {
       else setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setResetPassword(true)
+      }
       setSession(session)
       if (session) fetchProfile(session.user.id)
       else { setProfile(null); setLoading(false) }
@@ -43,6 +48,10 @@ export default function App() {
         <p className="text-gray-500">טוען...</p>
       </div>
     )
+  }
+
+  if (resetPassword) {
+    return <ResetPasswordPage onDone={() => setResetPassword(false)} />
   }
 
   if (!session) return <AuthPage />
