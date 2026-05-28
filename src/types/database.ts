@@ -5,6 +5,7 @@ export interface Profile {
   id: string
   email: string
   role: UserRole
+  nickname: string | null
   rest_timer_seconds: number
   created_at: string
 }

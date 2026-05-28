@@ -9,6 +9,8 @@ import ManageExercisesPage from './ManageExercisesPage'
 import AdminPage from './AdminPage'
 import ProgressPage from './ProgressPage'
 import DensityPage from './DensityPage'
+import AdminProgressPage from './AdminProgressPage'
+import AdminDensityPage from './AdminDensityPage'
 
 interface Props {
   userId: string
@@ -45,6 +47,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [adminOpen, setAdminOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
   const [densityOpen, setDensityOpen] = useState(false)
+  const [adminProgressOpen, setAdminProgressOpen] = useState(false)
+  const [adminDensityOpen, setAdminDensityOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const isToday = isSameDay(selectedDate, new Date())
@@ -166,6 +170,14 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return <DensityPage userId={userId} onClose={() => setDensityOpen(false)} />
   }
 
+  if (adminProgressOpen) {
+    return <AdminProgressPage onClose={() => setAdminProgressOpen(false)} />
+  }
+
+  if (adminDensityOpen) {
+    return <AdminDensityPage onClose={() => setAdminDensityOpen(false)} />
+  }
+
   if (managing) {
     return (
       <ManageExercisesPage
@@ -206,13 +218,29 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           <span className="text-gray-700 font-bold text-base">מעקב אימונים</span>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <button
-                onClick={() => setAdminOpen(true)}
-                className="text-gray-400 hover:text-gray-600 text-xl"
-                title="ניהול מערכת"
-              >
-                🛡️
-              </button>
+              <>
+                <button
+                  onClick={() => setAdminProgressOpen(true)}
+                  className="text-gray-400 hover:text-gray-600 text-xl"
+                  title="התקדמות — כל המשתמשים"
+                >
+                  📊👥
+                </button>
+                <button
+                  onClick={() => setAdminDensityOpen(true)}
+                  className="text-gray-400 hover:text-gray-600 text-xl"
+                  title="עצימות יומית — כל המשתמשים"
+                >
+                  📈👥
+                </button>
+                <button
+                  onClick={() => setAdminOpen(true)}
+                  className="text-gray-400 hover:text-gray-600 text-xl"
+                  title="ניהול מערכת"
+                >
+                  🛡️
+                </button>
+              </>
             )}
             <button
               onClick={() => supabase.auth.signOut()}
