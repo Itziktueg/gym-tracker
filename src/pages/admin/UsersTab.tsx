@@ -73,6 +73,7 @@ export default function UsersTab() {
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-gray-800 font-medium text-sm truncate">{user.email}</p>
+              <p className="text-gray-400 text-xs font-mono truncate">{user.id}</p>
               <p className="text-gray-400 text-xs">{new Date(user.created_at).toLocaleDateString('he-IL')}</p>
             </div>
             <button
