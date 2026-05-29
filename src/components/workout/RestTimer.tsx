@@ -23,16 +23,6 @@ function playBeep() {
   }
 }
 
-function fireNotification() {
-  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-    new Notification('⏱ זמן מנוחה הסתיים!', {
-      body: 'הגיע הזמן לסט הבא 💪',
-      icon: '/icon-192-v2.png',
-      tag:  'rest-timer',
-    } as NotificationOptions)
-  }
-}
-
 function fmt(s: number) {
   const m  = Math.floor(s / 60)
   const ss = String(s % 60).padStart(2, '0')
@@ -62,6 +52,61 @@ async function requestNotificationPermission() {
   }
 }
 
+// Schedule an OS-level notification at a precise timestamp.
+// Uses Notification Scheduling API (Chrome Android) when available,
+// falls back to setTimeout for when the app is open/backgrounded same browser.
+async function scheduleNotification(endAt: number) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+
+  // ── Option 1: Notification Scheduling API (Chrome Android ≥ 80) ──────────
+  // The OS fires this even when the app is fully backgrounded or screen is off.
+  if ('serviceWorker' in navigator && 'TimestampTrigger' in window) {
+    try {
+      const reg = await navigator.serviceWorker.ready
+      // Cancel any previous scheduled notification
+      const existing = await reg.getNotifications({ tag: 'rest-timer' })
+      existing.forEach(n => n.close())
+
+      await reg.showNotification('⏱ זמן מנוחה הסתיים!', {
+        body: 'הגיע הזמן לסט הבא 💪',
+        icon: '/icon-192-v2.png',
+        tag:  'rest-timer',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        showTrigger: new (window as any).TimestampTrigger(endAt),
+      } as NotificationOptions)
+      return   // done — OS handles the rest
+    } catch {
+      // fall through to setTimeout
+    }
+  }
+
+  // ── Option 2: setTimeout fallback ─────────────────────────────────────────
+  // Works when the app is open or backgrounded in the same browser session.
+  const delay = Math.max(0, endAt - Date.now())
+  if (scheduledNotif) clearTimeout(scheduledNotif)
+  scheduledNotif = setTimeout(() => {
+    if (Notification.permission === 'granted') {
+      new Notification('⏱ זמן מנוחה הסתיים!', {
+        body: 'הגיע הזמן לסט הבא 💪',
+        icon: '/icon-192-v2.png',
+        tag:  'rest-timer',
+      } as NotificationOptions)
+    }
+    scheduledNotif = null
+  }, delay)
+}
+
+async function cancelScheduledNotification() {
+  if (scheduledNotif) { clearTimeout(scheduledNotif); scheduledNotif = null }
+  if ('serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const existing = await reg.getNotifications({ tag: 'rest-timer' })
+      existing.forEach(n => n.close())
+    } catch { /* ignore */ }
+  }
+}
+
 export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }) {
   const [duration, setDuration] = useState<number>(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -76,22 +121,15 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
     localStorage.setItem(STORAGE_KEY, String(duration))
   }, [duration])
 
-  // Restore timer state on every mount (handles navigation away and back)
+  // Restore timer state on mount (handles navigation away and back)
   useEffect(() => {
-    const left = getSecondsLeft()
-    if (left !== null) {
+    const endAt = getEndAt()
+    const left  = getSecondsLeft()
+    if (endAt !== null && left !== null) {
       setSecondsLeft(left)
       setRunning(true)
-
-      // Re-schedule notification if not already scheduled
-      const endAt = getEndAt()
-      if (endAt !== null && scheduledNotif === null) {
-        const delay = endAt - Date.now()
-        scheduledNotif = setTimeout(() => {
-          fireNotification()
-          scheduledNotif = null
-        }, delay)
-      }
+      // Re-arm the OS notification in case it was lost
+      scheduleNotification(endAt)
     }
   }, []) // runs only on mount
 
@@ -133,24 +171,18 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
   }, [running])
 
   function start() {
-    requestNotificationPermission()
-
-    const endAt = Date.now() + duration * 1000
-    localStorage.setItem(STORAGE_END_KEY, String(endAt))
-    setSecondsLeft(duration)
-    setRunning(true)
-
-    // Schedule notification (module-level so it survives remounts)
-    if (scheduledNotif) clearTimeout(scheduledNotif)
-    scheduledNotif = setTimeout(() => {
-      fireNotification()
-      scheduledNotif = null
-    }, duration * 1000)
+    requestNotificationPermission().then(() => {
+      const endAt = Date.now() + duration * 1000
+      localStorage.setItem(STORAGE_END_KEY, String(endAt))
+      setSecondsLeft(duration)
+      setRunning(true)
+      scheduleNotification(endAt)
+    })
   }
 
   function stop() {
     localStorage.removeItem(STORAGE_END_KEY)
-    if (scheduledNotif) { clearTimeout(scheduledNotif); scheduledNotif = null }
+    cancelScheduledNotification()
     setRunning(false)
     setSecondsLeft(null)
   }
