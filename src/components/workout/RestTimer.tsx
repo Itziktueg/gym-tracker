@@ -6,6 +6,9 @@ const STEP     = 10
 const MIN_SECS = 10
 const MAX_SECS = 600
 
+// Module-level: survives component remounts
+let scheduledNotif: ReturnType<typeof setTimeout> | null = null
+
 function playBeep() {
   const ctx = new AudioContext()
   for (let i = 0; i < 3; i++) {
@@ -20,8 +23,8 @@ function playBeep() {
   }
 }
 
-function showNotification() {
-  if (Notification.permission === 'granted') {
+function fireNotification() {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     new Notification('⏱ זמן מנוחה הסתיים!', {
       body: 'הגיע הזמן לסט הבא 💪',
       icon: '/icon-192-v2.png',
@@ -36,20 +39,25 @@ function fmt(s: number) {
   return `${m}:${ss}`
 }
 
-function getSecondsLeft(): number | null {
-  const endAt = localStorage.getItem(STORAGE_END_KEY)
-  if (!endAt) return null
-  const left = Math.round((parseInt(endAt, 10) - Date.now()) / 1000)
-  if (left <= 0) {
+function getEndAt(): number | null {
+  const raw = localStorage.getItem(STORAGE_END_KEY)
+  if (!raw) return null
+  const endAt = parseInt(raw, 10)
+  if (endAt <= Date.now()) {
     localStorage.removeItem(STORAGE_END_KEY)
     return null
   }
-  return left
+  return endAt
+}
+
+function getSecondsLeft(): number | null {
+  const endAt = getEndAt()
+  if (endAt === null) return null
+  return Math.max(1, Math.round((endAt - Date.now()) / 1000))
 }
 
 async function requestNotificationPermission() {
-  if (typeof Notification === 'undefined') return
-  if (Notification.permission === 'default') {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
     await Notification.requestPermission()
   }
 }
@@ -59,17 +67,33 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
     const saved = localStorage.getItem(STORAGE_KEY)
     return saved ? parseInt(saved, 10) : defaultSeconds
   })
-
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(() => getSecondsLeft())
-  const [running, setRunning]         = useState<boolean>(() => getSecondsLeft() !== null)
-
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
+  const [running, setRunning]         = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const notifRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Persist duration
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, String(duration))
   }, [duration])
+
+  // Restore timer state on every mount (handles navigation away and back)
+  useEffect(() => {
+    const left = getSecondsLeft()
+    if (left !== null) {
+      setSecondsLeft(left)
+      setRunning(true)
+
+      // Re-schedule notification if not already scheduled
+      const endAt = getEndAt()
+      if (endAt !== null && scheduledNotif === null) {
+        const delay = endAt - Date.now()
+        scheduledNotif = setTimeout(() => {
+          fireNotification()
+          scheduledNotif = null
+        }, delay)
+      }
+    }
+  }, []) // runs only on mount
 
   // Countdown tick
   useEffect(() => {
@@ -91,20 +115,16 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [running])
 
-  // Sync display when app comes back to foreground
+  // Sync display when app comes back to foreground from another app
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState !== 'visible') return
       const left = getSecondsLeft()
-      if (left === null) {
-        // Timer expired while away — beep + stop
-        if (running) {
-          setRunning(false)
-          setSecondsLeft(null)
-          playBeep()
-        }
-      } else {
-        // Correct the display to match actual remaining time
+      if (left === null && running) {
+        setRunning(false)
+        setSecondsLeft(null)
+        playBeep()
+      } else if (left !== null) {
         setSecondsLeft(left)
       }
     }
@@ -120,17 +140,17 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
     setSecondsLeft(duration)
     setRunning(true)
 
-    // Schedule a native notification for when the timer ends
-    // This fires even when the app is backgrounded or another app is open
-    if (notifRef.current) clearTimeout(notifRef.current)
-    notifRef.current = setTimeout(() => {
-      showNotification()
+    // Schedule notification (module-level so it survives remounts)
+    if (scheduledNotif) clearTimeout(scheduledNotif)
+    scheduledNotif = setTimeout(() => {
+      fireNotification()
+      scheduledNotif = null
     }, duration * 1000)
   }
 
   function stop() {
     localStorage.removeItem(STORAGE_END_KEY)
-    if (notifRef.current) clearTimeout(notifRef.current)
+    if (scheduledNotif) { clearTimeout(scheduledNotif); scheduledNotif = null }
     setRunning(false)
     setSecondsLeft(null)
   }
