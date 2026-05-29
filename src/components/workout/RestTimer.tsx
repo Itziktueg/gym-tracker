@@ -26,8 +26,7 @@ function showNotification() {
       body: 'הגיע הזמן לסט הבא 💪',
       icon: '/icon-192-v2.png',
       tag:  'rest-timer',
-      renotify: true,
-    })
+    } as NotificationOptions)
   }
 }
 
