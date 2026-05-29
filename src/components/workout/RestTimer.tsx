@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 
 const STORAGE_KEY     = 'rest-timer-seconds'
 const STORAGE_END_KEY = 'rest-timer-end-at'
-const STEP    = 10
+const STEP     = 10
 const MIN_SECS = 10
 const MAX_SECS = 600
 
@@ -17,6 +17,17 @@ function playBeep() {
     gain.gain.value     = 0.3
     osc.start(ctx.currentTime + i * 0.4)
     osc.stop(ctx.currentTime + i * 0.4 + 0.25)
+  }
+}
+
+function showNotification() {
+  if (Notification.permission === 'granted') {
+    new Notification('⏱ זמן מנוחה הסתיים!', {
+      body: 'הגיע הזמן לסט הבא 💪',
+      icon: '/icon-192-v2.png',
+      tag:  'rest-timer',
+      renotify: true,
+    })
   }
 }
 
@@ -37,16 +48,24 @@ function getSecondsLeft(): number | null {
   return left
 }
 
+async function requestNotificationPermission() {
+  if (typeof Notification === 'undefined') return
+  if (Notification.permission === 'default') {
+    await Notification.requestPermission()
+  }
+}
+
 export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }) {
   const [duration, setDuration] = useState<number>(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     return saved ? parseInt(saved, 10) : defaultSeconds
   })
 
-  // Resume if there's an active timer from before navigation
   const [secondsLeft, setSecondsLeft] = useState<number | null>(() => getSecondsLeft())
   const [running, setRunning]         = useState<boolean>(() => getSecondsLeft() !== null)
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const notifRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Persist duration
   useEffect(() => {
@@ -73,15 +92,46 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [running])
 
+  // Sync display when app comes back to foreground
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState !== 'visible') return
+      const left = getSecondsLeft()
+      if (left === null) {
+        // Timer expired while away — beep + stop
+        if (running) {
+          setRunning(false)
+          setSecondsLeft(null)
+          playBeep()
+        }
+      } else {
+        // Correct the display to match actual remaining time
+        setSecondsLeft(left)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [running])
+
   function start() {
+    requestNotificationPermission()
+
     const endAt = Date.now() + duration * 1000
     localStorage.setItem(STORAGE_END_KEY, String(endAt))
     setSecondsLeft(duration)
     setRunning(true)
+
+    // Schedule a native notification for when the timer ends
+    // This fires even when the app is backgrounded or another app is open
+    if (notifRef.current) clearTimeout(notifRef.current)
+    notifRef.current = setTimeout(() => {
+      showNotification()
+    }, duration * 1000)
   }
 
   function stop() {
     localStorage.removeItem(STORAGE_END_KEY)
+    if (notifRef.current) clearTimeout(notifRef.current)
     setRunning(false)
     setSecondsLeft(null)
   }
