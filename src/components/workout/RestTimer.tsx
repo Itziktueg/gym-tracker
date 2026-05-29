@@ -1,28 +1,40 @@
 import { useState, useEffect, useRef } from 'react'
 
-const STORAGE_KEY = 'rest-timer-seconds'
-const STEP = 10
+const STORAGE_KEY     = 'rest-timer-seconds'
+const STORAGE_END_KEY = 'rest-timer-end-at'
+const STEP    = 10
 const MIN_SECS = 10
 const MAX_SECS = 600
 
 function playBeep() {
   const ctx = new AudioContext()
   for (let i = 0; i < 3; i++) {
-    const osc = ctx.createOscillator()
+    const osc  = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.connect(gain)
     gain.connect(ctx.destination)
     osc.frequency.value = 880
-    gain.gain.value = 0.3
+    gain.gain.value     = 0.3
     osc.start(ctx.currentTime + i * 0.4)
     osc.stop(ctx.currentTime + i * 0.4 + 0.25)
   }
 }
 
 function fmt(s: number) {
-  const m = Math.floor(s / 60)
+  const m  = Math.floor(s / 60)
   const ss = String(s % 60).padStart(2, '0')
   return `${m}:${ss}`
+}
+
+function getSecondsLeft(): number | null {
+  const endAt = localStorage.getItem(STORAGE_END_KEY)
+  if (!endAt) return null
+  const left = Math.round((parseInt(endAt, 10) - Date.now()) / 1000)
+  if (left <= 0) {
+    localStorage.removeItem(STORAGE_END_KEY)
+    return null
+  }
+  return left
 }
 
 export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }) {
@@ -30,21 +42,25 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
     const saved = localStorage.getItem(STORAGE_KEY)
     return saved ? parseInt(saved, 10) : defaultSeconds
   })
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
-  const [running, setRunning] = useState(false)
+
+  // Resume if there's an active timer from before navigation
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(() => getSecondsLeft())
+  const [running, setRunning]         = useState<boolean>(() => getSecondsLeft() !== null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Persist duration whenever it changes
+  // Persist duration
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, String(duration))
   }, [duration])
 
+  // Countdown tick
   useEffect(() => {
     if (running) {
       intervalRef.current = setInterval(() => {
         setSecondsLeft(prev => {
           if (prev === null || prev <= 1) {
             setRunning(false)
+            localStorage.removeItem(STORAGE_END_KEY)
             playBeep()
             return null
           }
@@ -58,11 +74,14 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
   }, [running])
 
   function start() {
+    const endAt = Date.now() + duration * 1000
+    localStorage.setItem(STORAGE_END_KEY, String(endAt))
     setSecondsLeft(duration)
     setRunning(true)
   }
 
   function stop() {
+    localStorage.removeItem(STORAGE_END_KEY)
     setRunning(false)
     setSecondsLeft(null)
   }
