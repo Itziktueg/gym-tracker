@@ -7,6 +7,7 @@ import RestTimer from '../components/workout/RestTimer'
 import LogModal from '../components/workout/LogModal'
 import ManageExercisesPage from './ManageExercisesPage'
 import AdminPage from './AdminPage'
+import AdminHub from './AdminHub'
 import ProgressPage from './ProgressPage'
 import DensityPage from './DensityPage'
 import AdminProgressPage from './AdminProgressPage'
@@ -44,6 +45,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [viewLogs, setViewLogs] = useState<WorkoutLog[]>([])
   const [selected, setSelected] = useState<ExerciseUser | null>(null)
   const [managing, setManaging] = useState(false)
+  const [adminHubOpen, setAdminHubOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
   const [densityOpen, setDensityOpen] = useState(false)
@@ -158,6 +160,17 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     )
   }
 
+  if (adminHubOpen) {
+    return (
+      <AdminHub
+        onClose={() => setAdminHubOpen(false)}
+        onAdminPage={() => { setAdminHubOpen(false); setAdminOpen(true) }}
+        onAdminProgress={() => { setAdminHubOpen(false); setAdminProgressOpen(true) }}
+        onAdminDensity={() => { setAdminHubOpen(false); setAdminDensityOpen(true) }}
+      />
+    )
+  }
+
   if (adminOpen) {
     return <AdminPage onClose={() => setAdminOpen(false)} adminId={userId} />
   }
@@ -218,36 +231,20 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           <span className="text-gray-700 font-bold text-base">מעקב אימונים</span>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <>
-                <button
-                  onClick={() => setAdminProgressOpen(true)}
-                  className="text-gray-400 hover:text-gray-600 text-xl"
-                  title="התקדמות — כל המשתמשים"
-                >
-                  📊👥
-                </button>
-                <button
-                  onClick={() => setAdminDensityOpen(true)}
-                  className="text-gray-400 hover:text-gray-600 text-xl"
-                  title="עצימות יומית — כל המשתמשים"
-                >
-                  📈👥
-                </button>
-                <button
-                  onClick={() => setAdminOpen(true)}
-                  className="text-gray-400 hover:text-gray-600 text-xl"
-                  title="ניהול מערכת"
-                >
-                  🛡️
-                </button>
-              </>
+              <button
+                onClick={() => setAdminHubOpen(true)}
+                className="hover:opacity-70 transition-opacity"
+                title="ניהול מערכת"
+              >
+                <span className="text-xl">🛡️</span>
+              </button>
             )}
             <button
               onClick={() => supabase.auth.signOut()}
-              className="text-gray-400 hover:text-gray-600 text-xl"
+              className="hover:opacity-70 transition-opacity"
               title="התנתק"
             >
-              🚪
+              <img src="/exit.jpeg" alt="exit" className="w-8 h-8 rounded-full object-cover" />
             </button>
           </div>
         </div>
