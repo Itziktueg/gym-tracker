@@ -21,10 +21,12 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
   const numSets = Math.max(exercise.default_sets, 1)
 
   const [lines, setLines] = useState<SetLine[]>(
-    Array.from({ length: numSets }, () => ({
-      reps: exercise.default_reps,
-      weight: exercise.default_weight,
-    }))
+    todayLogs.length > 0
+      ? todayLogs.map(l => ({ reps: l.reps_completed, weight: l.weight }))
+      : Array.from({ length: numSets }, () => ({
+          reps: exercise.default_reps,
+          weight: exercise.default_weight,
+        }))
   )
   const [loading, setLoading]           = useState(false)
   const [undoing, setUndoing]           = useState(false)

@@ -8,43 +8,39 @@ interface Props {
 
 const CATEGORY_ORDER = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
 
-const CATEGORY_DOT: Record<string, string> = {
-  'פלג גוף תחתון': 'bg-blue-500',
-  'גב וכתפיים':    'bg-violet-500',
-  'חזה וזרועות':   'bg-orange-500',
-  'בטן וליבה':     'bg-teal-500',
+const CATEGORY_STYLE: Record<string, { dot: string; text: string; bg: string }> = {
+  'פלג גוף תחתון': { dot: 'bg-blue-500',   text: 'text-blue-700',   bg: 'bg-blue-50' },
+  'גב וכתפיים':    { dot: 'bg-violet-500', text: 'text-violet-700', bg: 'bg-violet-50' },
+  'חזה וזרועות':   { dot: 'bg-orange-500', text: 'text-orange-700', bg: 'bg-orange-50' },
+  'בטן וליבה':     { dot: 'bg-teal-500',   text: 'text-teal-700',   bg: 'bg-teal-50' },
 }
 
-const CATEGORY_TEXT: Record<string, string> = {
-  'פלג גוף תחתון': 'text-blue-600',
-  'גב וכתפיים':    'text-violet-600',
-  'חזה וזרועות':   'text-orange-500',
-  'בטן וליבה':     'text-teal-600',
-}
-
-interface HistoryRow {
+interface ExerciseEntry {
   date: string
-  category: string
-  exerciseName: string
   sets: number
   reps: number
   weight: number
   intensity: number
 }
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('he-IL', { weekday: 'short', day: '2-digit', month: '2-digit' })
+interface ExerciseHistory {
+  id: string
+  name: string
+  category: string
+  entries: ExerciseEntry[]   // sorted date desc, max 30
 }
 
-const DATE_W    = 76
-const CAT_W     = 100
-const NAME_W    = 136
-const SMALL_W   = 44
-const INTENS_W  = 68
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })
+}
+
+// Widths inside each exercise mini-table
+const W = { date: 56, sets: 30, reps: 34, wt: 36, int: 54 }
+const BLOCK_W = W.date + W.sets + W.reps + W.wt + W.int  // 210 px
 
 export default function WorkoutHistoryPage({ userId, onClose }: Props) {
-  const [rows, setRows]       = useState<HistoryRow[]>([])
+  const [chunks, setChunks] = useState<ExerciseHistory[][]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -62,65 +58,46 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
 
       if (!logs || !exercises) { setLoading(false); return }
 
-      // Build exercise lookup
-      const exMap: Record<string, { name_he: string; category: string }> = {}
-      for (const ex of exercises) exMap[ex.id] = { name_he: ex.name_he, category: ex.category ?? '' }
+      const exMap: Record<string, { name: string; category: string }> = {}
+      for (const ex of exercises) exMap[ex.id] = { name: ex.name_he, category: ex.category ?? '' }
 
-      // Group by date + exercise_id → aggregate
-      type Agg = { sets: number; reps: number; weight: number; intensity: number }
-      const grouped: Record<string, Record<string, Agg>> = {}  // date → exerciseId → agg
-
+      // Aggregate by exercise × date
+      const histMap: Record<string, Record<string, ExerciseEntry>> = {}
       for (const log of logs) {
         const date = log.logged_at.slice(0, 10)
-        if (!grouped[date]) grouped[date] = {}
-        if (!grouped[date][log.exercise_id]) {
-          grouped[date][log.exercise_id] = { sets: 0, reps: 0, weight: 0, intensity: 0 }
-        }
-        const agg = grouped[date][log.exercise_id]
-        agg.sets      += 1
-        agg.reps      += log.reps_completed ?? 0
-        agg.weight     = Math.max(agg.weight, log.weight ?? 0)
-        agg.intensity += log.intensity ?? 0
+        if (!histMap[log.exercise_id]) histMap[log.exercise_id] = {}
+        const byDate = histMap[log.exercise_id]
+        if (!byDate[date]) byDate[date] = { date, sets: 0, reps: 0, weight: 0, intensity: 0 }
+        const e = byDate[date]
+        e.sets      += 1
+        e.reps      += log.reps_completed ?? 0
+        e.weight     = Math.max(e.weight, log.weight ?? 0)
+        e.intensity += log.intensity ?? 0
       }
 
-      // Take the last 30 workout dates
-      const allDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
-      const last30   = allDates.slice(0, 30)
+      // Build sorted exercise list (only those with at least one log)
+      const sorted: ExerciseHistory[] = Object.entries(histMap)
+        .map(([id, byDate]) => ({
+          id,
+          name:     exMap[id]?.name     ?? id,
+          category: exMap[id]?.category ?? '',
+          entries:  Object.values(byDate)
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .slice(0, 30),
+        }))
+        .sort((a, b) => {
+          const catA = CATEGORY_ORDER.indexOf(a.category)
+          const catB = CATEGORY_ORDER.indexOf(b.category)
+          if (catA !== catB) return catA - catB
+          return a.name.localeCompare(b.name, 'he')
+        })
 
-      // Build flat row list
-      const result: HistoryRow[] = []
-      for (const date of last30) {
-        const exEntries = Object.entries(grouped[date])
-          .map(([exId, agg]) => ({
-            exId,
-            category: exMap[exId]?.category ?? '',
-            exerciseName: exMap[exId]?.name_he ?? exId,
-            ...agg,
-          }))
-          .sort((a, b) => {
-            const catA = CATEGORY_ORDER.indexOf(a.category)
-            const catB = CATEGORY_ORDER.indexOf(b.category)
-            if (catA !== catB) return catA - catB
-            return a.exerciseName.localeCompare(b.exerciseName, 'he')
-          })
-
-        for (const e of exEntries) {
-          result.push({
-            date,
-            category:     e.category,
-            exerciseName: e.exerciseName,
-            sets:         e.sets,
-            reps:         e.reps,
-            weight:       e.weight,
-            intensity:    e.intensity,
-          })
-        }
-      }
-
-      setRows(result)
+      // Chunk into groups of 3
+      const result: ExerciseHistory[][] = []
+      for (let i = 0; i < sorted.length; i += 3) result.push(sorted.slice(i, i + 3))
+      setChunks(result)
       setLoading(false)
     }
-
     load()
   }, [userId])
 
@@ -132,7 +109,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
     )
   }
 
-  let lastDate = ''
+  let lastCategory = ''
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -143,141 +120,74 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
         <div className="w-12" />
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="border-collapse"
-          style={{ minWidth: DATE_W + CAT_W + NAME_W + SMALL_W * 3 + INTENS_W }}>
-          {/* Sticky column header */}
-          <thead>
-            <tr>
-              <th className="sticky right-0 top-0 z-30 bg-gray-800 border-b border-l border-gray-700 text-gray-400 text-xs font-medium px-2 py-2 text-center"
-                style={{ width: DATE_W, minWidth: DATE_W }}>
-                תאריך
-              </th>
-              <th className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-400 text-xs font-medium px-2 py-2 text-right"
-                style={{ width: CAT_W, minWidth: CAT_W }}>
-                קבוצה
-              </th>
-              <th className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-400 text-xs font-medium px-2 py-2 text-right"
-                style={{ width: NAME_W, minWidth: NAME_W }}>
-                תרגיל
-              </th>
-              <th className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
-                style={{ width: SMALL_W, minWidth: SMALL_W }}>
-                סטים
-              </th>
-              <th className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
-                style={{ width: SMALL_W, minWidth: SMALL_W }}>
-                חזר'
-              </th>
-              <th className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
-                style={{ width: SMALL_W, minWidth: SMALL_W }}>
-                ק"ג
-              </th>
-              <th className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
-                style={{ width: INTENS_W, minWidth: INTENS_W }}>
-                עצימות
-              </th>
-            </tr>
-          </thead>
+      <div className="flex-1 overflow-auto p-2 flex flex-col gap-3">
+        {chunks.map((group, gi) => {
+          const cat = group[0].category
+          const showCat = cat !== lastCategory
+          if (showCat) lastCategory = cat
+          const style = CATEGORY_STYLE[cat]
 
-          <tbody>
-            {rows.map((row, i) => {
-              const isNewDate = row.date !== lastDate
-              if (isNewDate) lastDate = row.date
-              const dot  = CATEGORY_DOT[row.category]  ?? 'bg-gray-400'
-              const text = CATEGORY_TEXT[row.category] ?? 'text-gray-600'
+          return (
+            <div key={gi}>
+              {/* Category header */}
+              {showCat && (
+                <div className={`flex items-center gap-2 px-3 py-1.5 mb-2 rounded-lg ${style?.bg ?? 'bg-gray-100'}`}>
+                  <span className={`w-3 h-3 rounded-full shrink-0 ${style?.dot ?? 'bg-gray-400'}`} />
+                  <span className={`text-sm font-bold ${style?.text ?? 'text-gray-700'}`}>{cat}</span>
+                </div>
+              )}
 
-              return (
-                <>
-                  {/* Date separator row */}
-                  {isNewDate && (
-                    <tr key={`date-${row.date}`}>
-                      <td
-                        colSpan={7}
-                        className="bg-gray-900 text-white text-xs font-bold px-3 py-1.5"
-                      >
-                        📅 {formatDate(row.date)}
-                      </td>
-                    </tr>
-                  )}
+              {/* 3 exercise tables side by side */}
+              <div className="overflow-x-auto">
+                <div className="flex gap-1" style={{ width: group.length * BLOCK_W + (group.length - 1) * 4 }}>
+                  {group.map(ex => (
+                    <div key={ex.id} className="rounded-xl overflow-hidden border border-gray-200 shadow-sm flex-shrink-0"
+                      style={{ width: BLOCK_W }}>
 
-                  {/* Exercise row */}
-                  <tr key={`${row.date}-${i}`} className="even:bg-gray-50 odd:bg-white">
-                    {/* Date — sticky right */}
-                    <td
-                      className="sticky right-0 z-10 bg-inherit border-b border-l border-gray-200 text-center text-xs font-medium text-gray-500 px-1 py-2"
-                      style={{ width: DATE_W, minWidth: DATE_W }}
-                    >
-                      {formatDate(row.date)}
-                    </td>
+                      {/* Exercise name */}
+                      <div className="bg-gray-800 text-white text-xs font-bold px-2 py-1.5 text-center truncate">
+                        {ex.name}
+                      </div>
 
-                    {/* Category */}
-                    <td
-                      className="border-b border-r border-gray-200 px-2 py-2"
-                      style={{ width: CAT_W, minWidth: CAT_W }}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
-                        <span className={`text-xs font-semibold ${text} leading-tight`}>
-                          {row.category}
-                        </span>
-                      </span>
-                    </td>
+                      {/* Sub-header */}
+                      <div className="flex bg-gray-700">
+                        <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.date }}>תאריך</span>
+                        <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.sets }}>סטים</span>
+                        <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.reps }}>חזר'</span>
+                        <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.wt }}>ק"ג</span>
+                        <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.int }}>עצימות</span>
+                      </div>
 
-                    {/* Exercise name */}
-                    <td
-                      className="border-b border-r border-gray-200 px-2 py-2 text-gray-800 text-xs font-medium"
-                      style={{ width: NAME_W, minWidth: NAME_W }}
-                    >
-                      {row.exerciseName}
-                    </td>
+                      {/* Data rows */}
+                      {ex.entries.map((entry, ri) => (
+                        <div key={entry.date}
+                          className={`flex items-center ${ri % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-t border-gray-100`}>
+                          <span className="text-xs text-gray-500 font-medium text-center py-1.5 tabular-nums"
+                            style={{ width: W.date }}>{formatDate(entry.date)}</span>
+                          <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
+                            style={{ width: W.sets }}>{entry.sets}</span>
+                          <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
+                            style={{ width: W.reps }}>{entry.reps}</span>
+                          <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
+                            style={{ width: W.wt }}>{entry.weight > 0 ? entry.weight : '—'}</span>
+                          <span className={`text-xs font-semibold text-center py-1.5 tabular-nums ${
+                            entry.intensity >= 3000 ? 'text-green-600' :
+                            entry.intensity >= 1500 ? 'text-blue-600' :
+                            'text-gray-700'}`}
+                            style={{ width: W.int }}>
+                            {entry.intensity > 0 ? entry.intensity.toLocaleString() : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })}
 
-                    {/* Sets */}
-                    <td
-                      className="border-b border-r border-gray-200 text-center text-xs text-gray-700 py-2 px-1"
-                      style={{ width: SMALL_W, minWidth: SMALL_W }}
-                    >
-                      {row.sets}
-                    </td>
-
-                    {/* Reps */}
-                    <td
-                      className="border-b border-r border-gray-200 text-center text-xs text-gray-700 py-2 px-1"
-                      style={{ width: SMALL_W, minWidth: SMALL_W }}
-                    >
-                      {row.reps}
-                    </td>
-
-                    {/* Weight */}
-                    <td
-                      className="border-b border-r border-gray-200 text-center text-xs text-gray-700 py-2 px-1"
-                      style={{ width: SMALL_W, minWidth: SMALL_W }}
-                    >
-                      {row.weight > 0 ? row.weight : '—'}
-                    </td>
-
-                    {/* Intensity */}
-                    <td
-                      className="border-b border-r border-gray-200 text-center text-xs py-2 px-1"
-                      style={{ width: INTENS_W, minWidth: INTENS_W }}
-                    >
-                      <span className={`font-semibold ${
-                        row.intensity >= 3000 ? 'text-green-600' :
-                        row.intensity >= 1500 ? 'text-blue-600' :
-                        'text-gray-700'
-                      }`}>
-                        {row.intensity > 0 ? row.intensity.toLocaleString() : '—'}
-                      </span>
-                    </td>
-                  </tr>
-                </>
-              )
-            })}
-          </tbody>
-        </table>
-
-        {rows.length === 0 && (
+        {chunks.length === 0 && (
           <p className="text-center text-gray-400 mt-12 text-sm">אין נתונים להצגה</p>
         )}
       </div>
