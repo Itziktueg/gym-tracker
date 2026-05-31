@@ -28,6 +28,7 @@ interface ExerciseHistory {
   id: string
   name: string
   category: string
+  bilateral: boolean
   entries: ExerciseEntry[]   // sorted date desc, max 30
 }
 
@@ -54,13 +55,13 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
 
       const { data: exercises } = await supabase
         .from('exercises_user')
-        .select('id, name_he, category')
+        .select('id, name_he, category, is_bilateral')
         .eq('user_id', userId)
 
       if (!logs || !exercises) { setLoading(false); return }
 
-      const exMap: Record<string, { name: string; category: string }> = {}
-      for (const ex of exercises) exMap[ex.id] = { name: ex.name_he, category: ex.category ?? '' }
+      const exMap: Record<string, { name: string; category: string; bilateral: boolean }> = {}
+      for (const ex of exercises) exMap[ex.id] = { name: ex.name_he, category: ex.category ?? '', bilateral: ex.is_bilateral ?? false }
 
       // Aggregate by exercise × date
       const histMap: Record<string, Record<string, ExerciseEntry>> = {}
@@ -83,6 +84,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
           id,
           name:     exMap[id]?.name     ?? id,
           category: exMap[id]?.category ?? '',
+          bilateral: exMap[id]?.bilateral ?? false,
           entries:  Object.values(byDate)
             .sort((a, b) => b.date.localeCompare(a.date))
             .slice(0, 30),
@@ -161,7 +163,17 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                       </div>
 
                       {/* Data rows */}
-                      {ex.entries.map((entry, ri) => (
+                      {ex.entries.map((entry, ri) => {
+                        // Derive reps/set from intensity (works for both old and new data formats).
+                        // Old format: intensity stored as sets×reps×weight×bilateral per row.
+                        // New format: intensity stored as reps×weight×bilateral per row; sum = same total.
+                        // Fallback to reps_sum/rows when weight=0 (bodyweight exercises).
+                        const bilat = ex.bilateral ? 2 : 1
+                        const repsDisplay = entry.sets > 0 && entry.weight > 0
+                          ? Math.round(entry.intensity / (entry.sets * entry.weight * bilat))
+                          : entry.rows > 0 ? Math.round(entry.reps / entry.rows) : entry.reps
+
+                        return (
                         <div key={entry.date}
                           className={`flex items-center ${ri % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-t border-gray-100`}>
                           <span className="text-xs text-gray-500 font-medium text-center py-1.5 tabular-nums"
@@ -169,7 +181,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                           <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
                             style={{ width: W.sets }}>{entry.sets}</span>
                           <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
-                            style={{ width: W.reps }}>{entry.rows > 0 ? Math.round(entry.reps / entry.rows) : entry.reps}</span>
+                            style={{ width: W.reps }}>{repsDisplay}</span>
                           <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
                             style={{ width: W.wt }}>{entry.weight > 0 ? entry.weight : '—'}</span>
                           <span className={`text-xs font-semibold text-center py-1.5 tabular-nums ${
@@ -180,7 +192,8 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                             {entry.intensity > 0 ? entry.intensity.toLocaleString() : '—'}
                           </span>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ))}
                 </div>
