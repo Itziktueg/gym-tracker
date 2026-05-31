@@ -18,6 +18,7 @@ const CATEGORY_STYLE: Record<string, { dot: string; text: string; bg: string }> 
 interface ExerciseEntry {
   date: string
   sets: number
+  rows: number   // actual log-row count (used to compute avg reps/set)
   reps: number
   weight: number
   intensity: number
@@ -67,8 +68,9 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
         const date = log.logged_at.slice(0, 10)
         if (!histMap[log.exercise_id]) histMap[log.exercise_id] = {}
         const byDate = histMap[log.exercise_id]
-        if (!byDate[date]) byDate[date] = { date, sets: 0, reps: 0, weight: 0, intensity: 0 }
+        if (!byDate[date]) byDate[date] = { date, sets: 0, rows: 0, reps: 0, weight: 0, intensity: 0 }
         const e = byDate[date]
+        e.rows      += 1
         e.sets      += log.sets_completed ?? 1
         e.reps      += log.reps_completed ?? 0
         e.weight     = Math.max(e.weight, log.weight ?? 0)
@@ -167,7 +169,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                           <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
                             style={{ width: W.sets }}>{entry.sets}</span>
                           <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
-                            style={{ width: W.reps }}>{entry.sets > 0 ? Math.round(entry.reps / entry.sets) : entry.reps}</span>
+                            style={{ width: W.reps }}>{entry.rows > 0 ? Math.round(entry.reps / entry.rows) : entry.reps}</span>
                           <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
                             style={{ width: W.wt }}>{entry.weight > 0 ? entry.weight : '—'}</span>
                           <span className={`text-xs font-semibold text-center py-1.5 tabular-nums ${
