@@ -47,7 +47,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
     async function load() {
       const { data: logs } = await supabase
         .from('workout_logs')
-        .select('exercise_id, logged_at, reps_completed, weight, intensity')
+        .select('exercise_id, logged_at, sets_completed, reps_completed, weight, intensity')
         .eq('user_id', userId)
         .order('logged_at', { ascending: false })
 
@@ -69,7 +69,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
         const byDate = histMap[log.exercise_id]
         if (!byDate[date]) byDate[date] = { date, sets: 0, reps: 0, weight: 0, intensity: 0 }
         const e = byDate[date]
-        e.sets      += 1
+        e.sets      += log.sets_completed ?? 1
         e.reps      += log.reps_completed ?? 0
         e.weight     = Math.max(e.weight, log.weight ?? 0)
         e.intensity += log.intensity ?? 0
@@ -167,7 +167,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                           <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
                             style={{ width: W.sets }}>{entry.sets}</span>
                           <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
-                            style={{ width: W.reps }}>{entry.reps}</span>
+                            style={{ width: W.reps }}>{entry.sets > 0 ? Math.round(entry.reps / entry.sets) : entry.reps}</span>
                           <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
                             style={{ width: W.wt }}>{entry.weight > 0 ? entry.weight : '—'}</span>
                           <span className={`text-xs font-semibold text-center py-1.5 tabular-nums ${
