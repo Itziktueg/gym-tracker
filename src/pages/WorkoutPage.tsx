@@ -12,6 +12,7 @@ import ProgressPage from './ProgressPage'
 import DensityPage from './DensityPage'
 import AdminProgressPage from './AdminProgressPage'
 import AdminDensityPage from './AdminDensityPage'
+import WorkoutHistoryPage from './WorkoutHistoryPage'
 
 interface Props {
   userId: string
@@ -45,6 +46,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [viewLogs, setViewLogs] = useState<WorkoutLog[]>([])
   const [selected, setSelected] = useState<ExerciseUser | null>(null)
   const [managing, setManaging] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [adminHubOpen, setAdminHubOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
@@ -160,6 +162,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     )
   }
 
+  if (historyOpen) {
+    return <WorkoutHistoryPage userId={userId} onClose={() => setHistoryOpen(false)} />
+  }
+
   if (adminHubOpen) {
     return (
       <AdminHub
@@ -212,6 +218,13 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
               title="ניהול תרגילים"
             >
               ⚙️
+            </button>
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="text-gray-400 hover:text-gray-600 text-xl"
+              title="היסטוריית אימונים"
+            >
+              📋
             </button>
             <button
               onClick={() => setProgressOpen(true)}
