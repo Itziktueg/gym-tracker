@@ -13,6 +13,7 @@ import DensityPage from './DensityPage'
 import AdminProgressPage from './AdminProgressPage'
 import AdminDensityPage from './AdminDensityPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
+import UserGuidePage from './UserGuidePage'
 import HelpModal from '../components/HelpModal'
 
 interface Props {
@@ -55,6 +56,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [adminProgressOpen, setAdminProgressOpen] = useState(false)
   const [adminDensityOpen, setAdminDensityOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const isToday = isSameDay(selectedDate, new Date())
@@ -199,6 +201,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return <AdminDensityPage onClose={() => setAdminDensityOpen(false)} />
   }
 
+  if (guideOpen) {
+    return <UserGuidePage isAdmin={isAdmin} onClose={() => setGuideOpen(false)} />
+  }
+
   if (managing) {
     return (
       <ManageExercisesPage
@@ -246,9 +252,16 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           <span className="text-gray-700 font-bold text-base">מעקב אימונים</span>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setGuideOpen(true)}
+              className="text-gray-400 hover:text-gray-600 text-xl"
+              title="מדריך למשתמש"
+            >
+              📖
+            </button>
+            <button
               onClick={() => setHelpOpen(true)}
               className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center"
-              title="עזרה"
+              title="עזרה מהירה"
             >
               ?
             </button>
