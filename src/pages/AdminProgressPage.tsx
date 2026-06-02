@@ -227,7 +227,7 @@ export default function AdminProgressPage({ onClose }: Props) {
                   style={{ minWidth: NAME_WIDTH + COL_WIDTH * block.dates.length }}
                 >
                   {/* Nickname header */}
-                  <thead>
+                  <thead className="sticky top-0 z-20">
                     <tr>
                       <th
                         colSpan={block.dates.length + 1}
@@ -238,7 +238,7 @@ export default function AdminProgressPage({ onClose }: Props) {
                     </tr>
                     <tr>
                       <th
-                        className="sticky right-0 top-0 z-30 bg-gray-800 border-b border-l border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
+                        className="sticky right-0 z-30 bg-gray-800 border-b border-l border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
                         style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                       >
                         תרגיל
@@ -246,7 +246,7 @@ export default function AdminProgressPage({ onClose }: Props) {
                       {block.dates.map(d => (
                         <th
                           key={d}
-                          className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
+                          className="bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
                           style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                         >
                           <div className="text-gray-400 text-[10px] leading-tight">{formatDay(d)}</div>
