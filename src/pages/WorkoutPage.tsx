@@ -247,9 +247,6 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             >
               📊
             </button>
-          </div>
-          <span className="absolute left-1/2 -translate-x-1/2 text-gray-700 font-bold text-base pointer-events-none">מעקב אימונים</span>
-          <div className="flex items-center gap-2">
             <button
               onClick={() => setGuideOpen(true)}
               className="text-gray-400 hover:text-gray-600 text-xl"
@@ -257,6 +254,9 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             >
               📖
             </button>
+          </div>
+          <span className="absolute left-1/2 -translate-x-1/2 text-gray-700 font-bold text-base pointer-events-none">מעקב אימונים</span>
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setHelpOpen(true)}
               className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center"
