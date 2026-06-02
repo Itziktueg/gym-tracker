@@ -1,17 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(npx tsc --noEmit *)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; npx tsc*)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; git status*)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; git add*)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; git commit*)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; git push*)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; git diff*)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; git log*)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; git fetch*)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; npm run*)",
-      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; npm install*)"
+      "PowerShell(npx tsc:*)",
+      "PowerShell(git status:*)",
+      "PowerShell(git add:*)",
+      "PowerShell(git commit:*)",
+      "PowerShell(git push:*)",
+      "PowerShell(git pull:*)",
+      "PowerShell(git fetch:*)",
+      "PowerShell(git diff:*)",
+      "PowerShell(git log:*)",
+      "PowerShell(git show:*)",
+      "PowerShell(git restore:*)",
+      "PowerShell(npm run:*)",
+      "PowerShell(npm install:*)",
+      "PowerShell(npm ci:*)"
     ]
   }
 }
