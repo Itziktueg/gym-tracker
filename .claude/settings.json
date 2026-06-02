@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npx tsc --noEmit *)",
+      "PowerShell(Set-Location C:\\Users\\itzik\\gym-tracker; npx tsc --noEmit *)"
+    ]
+  }
+}

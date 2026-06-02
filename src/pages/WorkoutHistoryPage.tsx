@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import HelpModal from '../components/HelpModal'
 
 interface Props {
   userId: string
@@ -44,6 +45,7 @@ const BLOCK_W = W.date + W.sets + W.reps + W.wt + W.int  // 210 px
 export default function WorkoutHistoryPage({ userId, onClose }: Props) {
   const [chunks, setChunks] = useState<ExerciseHistory[][]>([])
   const [loading, setLoading] = useState(true)
+  const [helpOpen, setHelpOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -121,7 +123,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
         <h1 className="text-gray-800 font-bold text-lg">היסטוריית אימונים</h1>
-        <div className="w-12" />
+        <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
       </div>
 
       <div className="flex-1 overflow-auto p-2 flex flex-col gap-3">
@@ -206,6 +208,15 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
           <p className="text-center text-gray-400 mt-12 text-sm">אין נתונים להצגה</p>
         )}
       </div>
+
+      {helpOpen && (
+        <HelpModal onClose={() => setHelpOpen(false)} sections={[
+          { title: 'מבנה הדוח', body: '3 תרגילים זה לצד זה, ממוינים לפי קבוצת שריר. לכל תרגיל עד 30 הביצועים האחרונים.' },
+          { title: 'גלילה', body: 'גלול ימינה לתרגילים נוספים בקבוצה. גלול מטה לקבוצות שרירים אחרות.' },
+          { title: 'עצימות', body: 'ירוק = עצימות גבוהה (≥3000) · כחול = בינונית (≥1500) · אפור = נמוכה.' },
+          { title: 'חזרות', body: 'מציג חזרות לכל סט. עמודת עצימות = סטים × חזרות × משקל (× 2 לתרגיל דו-צדדי).' },
+        ]} />
+      )}
     </div>
   )
 }

@@ -13,6 +13,7 @@ import DensityPage from './DensityPage'
 import AdminProgressPage from './AdminProgressPage'
 import AdminDensityPage from './AdminDensityPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
+import HelpModal from '../components/HelpModal'
 
 interface Props {
   userId: string
@@ -53,6 +54,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [densityOpen, setDensityOpen] = useState(false)
   const [adminProgressOpen, setAdminProgressOpen] = useState(false)
   const [adminDensityOpen, setAdminDensityOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const isToday = isSameDay(selectedDate, new Date())
@@ -243,6 +245,13 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           </div>
           <span className="text-gray-700 font-bold text-base">מעקב אימונים</span>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setHelpOpen(true)}
+              className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center"
+              title="עזרה"
+            >
+              ?
+            </button>
             {isAdmin && (
               <button
                 onClick={() => setAdminHubOpen(true)}
@@ -294,6 +303,18 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           onSaved={handleSaved}
           onUndo={handleUndo}
         />
+      )}
+
+      {helpOpen && (
+        <HelpModal onClose={() => setHelpOpen(false)} sections={[
+          { title: 'רישום תרגיל', body: 'לחץ על תרגיל לפתיחת מסך הרישום. תרגיל עם מסגרת ירוקה כבר בוצע היום.' },
+          { title: 'טיימר מנוחה', body: 'לחץ על הטיימר בפס הכחול/אפור להפעלה. כוונן זמן עם + / −.' },
+          { title: 'ניווט תאריכים', body: 'חץ שמאלה = יום קודם. חץ ימינה = יום הבא (עד היום).' },
+          { title: 'כפתורי ניווט', body: '⚙️ ניהול תרגילים · 📋 היסטוריה · 📊 התקדמות · 📈 עצימות יומית' },
+          ...( isAdmin ? [
+            { title: 'ניהול מערכת (אדמין)', body: '🛡️ כניסה לניהול משתמשים, תרגילים גלובליים ודוחות לכל המשתמשים.' },
+          ] : []),
+        ]} />
       )}
     </div>
   )

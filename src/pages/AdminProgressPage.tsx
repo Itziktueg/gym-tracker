@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import HelpModal from '../components/HelpModal'
 import type { Profile } from '../types/database'
 
 interface Props {
@@ -44,6 +45,7 @@ export default function AdminProgressPage({ onClose }: Props) {
   const [blocks, setBlocks]       = useState<UserBlock[]>([])
   const [loading, setLoading]     = useState(true)
   const [open, setOpen]           = useState(false)
+  const [helpOpen, setHelpOpen]   = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
 
   // Load users with nicknames
@@ -159,7 +161,7 @@ export default function AdminProgressPage({ onClose }: Props) {
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
         <h1 className="text-gray-800 font-bold text-lg">התקדמות עצימות — כל המשתמשים</h1>
-        <div className="w-12" />
+        <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
       </div>
 
       {/* Filter */}
@@ -337,6 +339,14 @@ export default function AdminProgressPage({ onClose }: Props) {
             </span>
           </div>
         </div>
+      )}
+
+      {helpOpen && (
+        <HelpModal onClose={() => setHelpOpen(false)} sections={[
+          { title: 'סינון משתמשים', body: 'לחץ על הדרופדאון לבחירת משתמש ספציפי או "כל המשתמשים". ניתן לבחור מספר משתמשים.' },
+          { title: 'קריאת הטבלה', body: 'כל בלוק = משתמש אחד עם שמו בראש. שורות = תרגילים, עמודות = תאריכים.' },
+          { title: 'עצימות', body: 'ירוק ≥ 3000 · כחול ≥ 1500 · אפור < 1500.' },
+        ]} />
       )}
     </div>
   )

@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import HelpModal from '../components/HelpModal'
+
 interface Props {
   onClose: () => void
   onAdminPage: () => void
@@ -6,12 +9,14 @@ interface Props {
 }
 
 export default function AdminHub({ onClose, onAdminPage, onAdminProgress, onAdminDensity }: Props) {
+  const [helpOpen, setHelpOpen] = useState(false)
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
         <h1 className="text-gray-800 font-bold text-lg">ניהול מערכת</h1>
-        <div className="w-12" />
+        <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
       </div>
 
       <div className="flex flex-col gap-3 p-4 mt-2">
@@ -34,6 +39,14 @@ export default function AdminHub({ onClose, onAdminPage, onAdminProgress, onAdmi
           onClick={onAdminDensity}
         />
       </div>
+
+      {helpOpen && (
+        <HelpModal onClose={() => setHelpOpen(false)} sections={[
+          { title: 'ניהול משתמשים ותרגילים', body: 'ניהול משתמשים (כינויים, הרשאות, הזמנות) וספריית התרגילים הגלובלית.' },
+          { title: 'התקדמות עצימות', body: 'טבלת עצימות לפי תרגיל ותאריך — ניתן לסנן לפי משתמש.' },
+          { title: 'עצימות יומית', body: 'עצימות לפי קבוצת שריר לכל יום אימון — ניתן לסנן לפי משתמש.' },
+        ]} />
+      )}
     </div>
   )
 }

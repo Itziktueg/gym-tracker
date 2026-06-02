@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import HelpModal from '../components/HelpModal'
 
 interface Props {
   userId: string
@@ -32,6 +33,7 @@ export default function DensityPage({ userId, onClose }: Props) {
   const [pivot, setPivot]   = useState<Record<string, Record<string, number>>>({})
   const [totals, setTotals] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
+  const [helpOpen, setHelpOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -95,7 +97,7 @@ export default function DensityPage({ userId, onClose }: Props) {
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
         <h1 className="text-gray-800 font-bold text-lg">עצימות יומית לפי קבוצת שרירים</h1>
-        <div className="w-12" />
+        <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
       </div>
 
       {/* Table */}
@@ -197,6 +199,14 @@ export default function DensityPage({ userId, onClose }: Props) {
           </table>
         </div>
       </div>
+
+      {helpOpen && (
+        <HelpModal onClose={() => setHelpOpen(false)} sections={[
+          { title: 'קריאת הטבלה', body: 'עמודות = ימי אימון (מהאחרון). שורות = קבוצות שרירים + שורת סה"כ.' },
+          { title: 'שימוש', body: 'זיהוי ימים חזקים וחלשים לפי קבוצת שריר. עוזר לאזן עומס בין אימונים.' },
+          { title: 'גלילה', body: 'גלול ימינה לתאריכים ישנים יותר.' },
+        ]} />
+      )}
     </div>
   )
 }

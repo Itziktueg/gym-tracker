@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import HelpModal from '../components/HelpModal'
 import type { ExerciseUser, ExerciseGlobal } from '../types/database'
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor,
@@ -58,6 +59,8 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
 
   // Library picker modal
   const [pickerOpen, setPickerOpen] = useState(false)
+
+  const [helpOpen, setHelpOpen] = useState(false)
 
   // Scroll-to after edit/delete
   const [scrollToId, setScrollToId] = useState<string | null>(null)
@@ -562,14 +565,17 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm">
         <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-sm font-medium">חזור</button>
         <h1 className="text-gray-800 font-bold text-lg">ניהול תרגילים</h1>
-        <button onClick={openNew}
-          className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-4 py-1.5 rounded-lg">
-          + חדש
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
+          <button onClick={openNew}
+            className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-4 py-1.5 rounded-lg">
+            + חדש
+          </button>
+        </div>
       </div>
 
       <p className="text-gray-400 text-xs text-center mt-3 mb-1">
-        ✏️ עריכה · 📷 תמונה · 👁 הסתרה
+        ☰ גרור לסדר · ✏️ עריכה · 📷 תמונה · 👁 הסתרה
       </p>
 
       <input ref={listFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleListFileChange} />
@@ -591,6 +597,16 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
           </div>
         </SortableContext>
       </DndContext>
+
+      {helpOpen && (
+        <HelpModal onClose={() => setHelpOpen(false)} sections={[
+          { title: 'הסתרה / הצגה', body: '👁 מסתיר תרגיל ממסך הבית מבלי למחוק אותו. לחץ שוב להחזרה.' },
+          { title: 'שינוי סדר', body: 'לחץ לחיצה ממושכת על ☰ וגרור לסדר הרצוי.' },
+          { title: 'תרגיל חדש', body: 'לחץ "+ חדש". ניתן לבחור מהספרייה הכללית או להוסיף תרגיל מאפס.' },
+          { title: 'עריכה ותמונה', body: '✏️ לעריכת כל פרטי התרגיל. לחץ על תמונה/📷 להחלפה מהירה.' },
+          { title: 'מחיקה', body: '🗑 מוחק לצמיתות מהרשימה האישית שלך.' },
+        ]} />
+      )}
     </div>
   )
 }
