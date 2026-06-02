@@ -8,6 +8,7 @@ import LogModal from '../components/workout/LogModal'
 import ManageExercisesPage from './ManageExercisesPage'
 import AdminPage from './AdminPage'
 import AdminHub from './AdminHub'
+import ReportsHub from './ReportsHub'
 import ProgressPage from './ProgressPage'
 import DensityPage from './DensityPage'
 import AdminProgressPage from './AdminProgressPage'
@@ -49,6 +50,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [selected, setSelected] = useState<ExerciseUser | null>(null)
   const [managing, setManaging] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [reportsHubOpen, setReportsHubOpen] = useState(false)
   const [adminHubOpen, setAdminHubOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
@@ -167,7 +169,18 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   }
 
   if (historyOpen) {
-    return <WorkoutHistoryPage userId={userId} onClose={() => setHistoryOpen(false)} />
+    return <WorkoutHistoryPage userId={userId} onClose={() => { setHistoryOpen(false); setReportsHubOpen(true) }} />
+  }
+
+  if (reportsHubOpen) {
+    return (
+      <ReportsHub
+        onClose={() => setReportsHubOpen(false)}
+        onHistory={() => { setReportsHubOpen(false); setHistoryOpen(true) }}
+        onProgress={() => { setReportsHubOpen(false); setProgressOpen(true) }}
+        onDensity={() => { setReportsHubOpen(false); setDensityOpen(true) }}
+      />
+    )
   }
 
   if (adminHubOpen) {
@@ -186,11 +199,11 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   }
 
   if (progressOpen) {
-    return <ProgressPage userId={userId} onClose={() => setProgressOpen(false)} />
+    return <ProgressPage userId={userId} onClose={() => { setProgressOpen(false); setReportsHubOpen(true) }} />
   }
 
   if (densityOpen) {
-    return <DensityPage userId={userId} onClose={() => setDensityOpen(false)} />
+    return <DensityPage userId={userId} onClose={() => { setDensityOpen(false); setReportsHubOpen(true) }} />
   }
 
   if (adminProgressOpen) {
@@ -218,7 +231,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     <div className="min-h-screen bg-gray-100 pb-10">
       {/* Top bar */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="px-4 py-2 flex items-center justify-between">
+        <div className="relative px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setManaging(true)}
@@ -228,28 +241,14 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
               ⚙️
             </button>
             <button
-              onClick={() => setHistoryOpen(true)}
+              onClick={() => setReportsHubOpen(true)}
               className="text-gray-400 hover:text-gray-600 text-xl"
-              title="היסטוריית אימונים"
-            >
-              📋
-            </button>
-            <button
-              onClick={() => setProgressOpen(true)}
-              className="text-gray-400 hover:text-gray-600 text-xl"
-              title="התקדמות"
+              title="דוחות"
             >
               📊
             </button>
-            <button
-              onClick={() => setDensityOpen(true)}
-              className="text-gray-400 hover:text-gray-600 text-xl"
-              title="צפיפות יומית"
-            >
-              📈
-            </button>
           </div>
-          <span className="text-gray-700 font-bold text-base">מעקב אימונים</span>
+          <span className="absolute left-1/2 -translate-x-1/2 text-gray-700 font-bold text-base pointer-events-none">מעקב אימונים</span>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setGuideOpen(true)}
@@ -323,7 +322,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           { title: 'רישום תרגיל', body: 'לחץ על תרגיל לפתיחת מסך הרישום. תרגיל עם מסגרת ירוקה כבר בוצע היום.' },
           { title: 'טיימר מנוחה', body: 'לחץ על הטיימר בפס הכחול/אפור להפעלה. כוונן זמן עם + / −.' },
           { title: 'ניווט תאריכים', body: 'חץ שמאלה = יום קודם. חץ ימינה = יום הבא (עד היום).' },
-          { title: 'כפתורי ניווט', body: '⚙️ ניהול תרגילים · 📋 היסטוריה · 📊 התקדמות · 📈 עצימות יומית' },
+          { title: 'כפתורי ניווט', body: '⚙️ ניהול תרגילים · 📊 דוחות (היסטוריה, התקדמות, עצימות) · 📖 מדריך' },
           ...( isAdmin ? [
             { title: 'ניהול מערכת (אדמין)', body: '🛡️ כניסה לניהול משתמשים, תרגילים גלובליים ודוחות לכל המשתמשים.' },
           ] : []),
