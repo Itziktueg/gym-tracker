@@ -22,9 +22,15 @@ interface ExerciseRow {
   category: string
 }
 
+const DAYS_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr)
   return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })
+}
+
+function formatDay(dateStr: string) {
+  return DAYS_HE[new Date(dateStr).getDay()]
 }
 
 export default function ProgressPage({ userId, onClose }: Props) {
@@ -127,7 +133,8 @@ export default function ProgressPage({ userId, onClose }: Props) {
                     className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
                     style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                   >
-                    {formatDate(d)}
+                    <div className="text-gray-400 text-[10px] leading-tight">{formatDay(d)}</div>
+                    <div>{formatDate(d)}</div>
                   </th>
                 ))}
               </tr>
