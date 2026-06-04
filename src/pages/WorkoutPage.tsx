@@ -13,6 +13,8 @@ import ProgressPage from './ProgressPage'
 import DensityPage from './DensityPage'
 import AdminProgressPage from './AdminProgressPage'
 import AdminDensityPage from './AdminDensityPage'
+import WeeklyDensityPage from './WeeklyDensityPage'
+import AdminWeeklyDensityPage from './AdminWeeklyDensityPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
 import UserGuidePage from './UserGuidePage'
 import HelpModal from '../components/HelpModal'
@@ -57,6 +59,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [densityOpen, setDensityOpen] = useState(false)
   const [adminProgressOpen, setAdminProgressOpen] = useState(false)
   const [adminDensityOpen, setAdminDensityOpen] = useState(false)
+  const [weeklyDensityOpen, setWeeklyDensityOpen] = useState(false)
+  const [adminWeeklyDensityOpen, setAdminWeeklyDensityOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -202,16 +206,31 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return <ProgressPage userId={userId} onClose={() => { setProgressOpen(false); setReportsHubOpen(true) }} />
   }
 
+  if (weeklyDensityOpen) {
+    return <WeeklyDensityPage userId={userId} onClose={() => { setWeeklyDensityOpen(false); setDensityOpen(true) }} />
+  }
+
   if (densityOpen) {
-    return <DensityPage userId={userId} onClose={() => { setDensityOpen(false); setReportsHubOpen(true) }} />
+    return <DensityPage
+      userId={userId}
+      onClose={() => { setDensityOpen(false); setReportsHubOpen(true) }}
+      onWeekly={() => { setDensityOpen(false); setWeeklyDensityOpen(true) }}
+    />
   }
 
   if (adminProgressOpen) {
     return <AdminProgressPage onClose={() => setAdminProgressOpen(false)} />
   }
 
+  if (adminWeeklyDensityOpen) {
+    return <AdminWeeklyDensityPage onClose={() => { setAdminWeeklyDensityOpen(false); setAdminDensityOpen(true) }} />
+  }
+
   if (adminDensityOpen) {
-    return <AdminDensityPage onClose={() => setAdminDensityOpen(false)} />
+    return <AdminDensityPage
+      onClose={() => setAdminDensityOpen(false)}
+      onWeekly={() => { setAdminDensityOpen(false); setAdminWeeklyDensityOpen(true) }}
+    />
   }
 
   if (guideOpen) {

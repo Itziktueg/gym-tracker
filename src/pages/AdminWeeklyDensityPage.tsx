@@ -4,8 +4,7 @@ import HelpModal from '../components/HelpModal'
 import type { Profile } from '../types/database'
 
 interface Props {
-  onClose: () => void
-  onWeekly: () => void
+  onClose: () => void   // back to admin daily density
 }
 
 const CATEGORY_ORDER = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
@@ -24,34 +23,39 @@ const CATEGORY_TEXT: Record<string, string> = {
   'בטן וליבה':     'text-teal-600',
 }
 
-const DAYS_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })
-}
-
-function formatDay(dateStr: string) {
-  return DAYS_HE[new Date(dateStr).getDay()]
-}
-
 interface UserBlock {
   userId: string
   nickname: string
-  dates: string[]
+  weeks: string[]
   pivot: Record<string, Record<string, number>>
   totals: Record<string, number>
 }
 
-const COL_WIDTH  = 64
+function getSunday(dateStr: string): string {
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() - d.getDay())
+  return d.toISOString().slice(0, 10)
+}
+
+function weekNumber(sundayStr: string): number {
+  const d    = new Date(sundayStr)
+  const jan1 = new Date(d.getFullYear(), 0, 1)
+  return Math.floor((d.getTime() - jan1.getTime()) / (7 * 86400000)) + 1
+}
+
+function formatSunday(sundayStr: string) {
+  return new Date(sundayStr).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })
+}
+
+const COL_WIDTH  = 72
 const NAME_WIDTH = 140
 
-export default function AdminDensityPage({ onClose, onWeekly }: Props) {
-  const [users, setUsers]       = useState<Profile[]>([])
+export default function AdminWeeklyDensityPage({ onClose }: Props) {
+  const [users,    setUsers]    = useState<Profile[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [blocks, setBlocks]     = useState<UserBlock[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [open, setOpen]         = useState(false)
+  const [blocks,   setBlocks]   = useState<UserBlock[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [open,     setOpen]     = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
 
@@ -99,31 +103,30 @@ export default function AdminDensityPage({ onClose, onWeekly }: Props) {
       const userLogs = logs.filter(l => l.user_id === userId)
       const userEx   = exData.filter(e => e.user_id === userId)
 
-      const exCategory: Record<string, string> = {}
-      for (const ex of userEx) exCategory[ex.id] = ex.category ?? ''
+      const exCat: Record<string, string> = {}
+      for (const ex of userEx) exCat[ex.id] = ex.category ?? ''
 
       const pivotMap: Record<string, Record<string, number>> = {}
-      const dateSet = new Set<string>()
+      const weekSet = new Set<string>()
 
       for (const log of userLogs) {
-        const date = log.logged_at.slice(0, 10)
-        const cat  = exCategory[log.exercise_id] ?? ''
+        const week = getSunday(log.logged_at.slice(0, 10))
+        const cat  = exCat[log.exercise_id] ?? ''
         if (!CATEGORY_ORDER.includes(cat)) continue
-        dateSet.add(date)
+        weekSet.add(week)
         if (!pivotMap[cat]) pivotMap[cat] = {}
-        pivotMap[cat][date] = (pivotMap[cat][date] ?? 0) + (log.intensity ?? 0)
+        pivotMap[cat][week] = (pivotMap[cat][week] ?? 0) + (log.intensity ?? 0)
       }
 
-      const sortedDates = [...dateSet].sort()
+      const sortedWeeks = [...weekSet].sort()
       const totalsMap: Record<string, number> = {}
-      for (const d of sortedDates) {
-        totalsMap[d] = CATEGORY_ORDER.reduce((s, cat) => s + (pivotMap[cat]?.[d] ?? 0), 0)
-      }
+      for (const w of sortedWeeks)
+        totalsMap[w] = CATEGORY_ORDER.reduce((s, cat) => s + (pivotMap[cat]?.[w] ?? 0), 0)
 
       newBlocks.push({
         userId,
         nickname: user.nickname ?? user.email,
-        dates: sortedDates,
+        weeks: sortedWeeks,
         pivot: pivotMap,
         totals: totalsMap,
       })
@@ -161,12 +164,9 @@ export default function AdminDensityPage({ onClose, onWeekly }: Props) {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
-        <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
-        <h1 className="text-gray-800 font-bold text-lg">עצימות יומית — כל המשתמשים</h1>
-        <div className="flex items-center gap-2">
-          <button onClick={onWeekly} className="text-blue-500 hover:text-blue-700 text-xs font-semibold border border-blue-300 rounded-lg px-2 py-1">שבועי →</button>
-          <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
-        </div>
+        <button onClick={onClose} className="text-gray-500 text-sm font-medium">יומי ←</button>
+        <h1 className="text-gray-800 font-bold text-lg">עצימות שבועית — כל המשתמשים</h1>
+        <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
       </div>
 
       {/* Filter */}
@@ -219,13 +219,12 @@ export default function AdminDensityPage({ onClose, onWeekly }: Props) {
             <table
               key={block.userId}
               className="border-collapse mb-4"
-              style={{ minWidth: NAME_WIDTH + COL_WIDTH * block.dates.length }}
+              style={{ minWidth: NAME_WIDTH + COL_WIDTH * block.weeks.length }}
             >
-              {/* Nickname header */}
-              <thead>
+              <thead className="sticky top-0 z-20">
                 <tr>
                   <th
-                    colSpan={block.dates.length + 1}
+                    colSpan={block.weeks.length + 1}
                     className="bg-gray-900 text-white text-sm font-bold px-4 py-2 text-right"
                   >
                     👤 {block.nickname}
@@ -233,19 +232,19 @@ export default function AdminDensityPage({ onClose, onWeekly }: Props) {
                 </tr>
                 <tr>
                   <th
-                    className="sticky right-0 top-0 z-30 bg-gray-800 border-b border-l border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
+                    className="sticky right-0 z-30 bg-gray-800 border-b border-l border-gray-700 text-gray-400 text-xs font-medium px-2 py-2"
                     style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                   >
                     קבוצת שריר
                   </th>
-                  {block.dates.map(d => (
+                  {block.weeks.map(w => (
                     <th
-                      key={d}
-                      className="sticky top-0 z-20 bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
+                      key={w}
+                      className="bg-gray-800 border-b border-r border-gray-700 text-gray-200 text-xs font-medium px-1 py-2 text-center"
                       style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                     >
-                      <div className="text-gray-400 text-[10px] leading-tight">{formatDay(d)}</div>
-                      <div>{formatDate(d)}</div>
+                      <div>{formatSunday(w)}</div>
+                      <div className="text-gray-400 text-[10px] leading-tight">שבוע {weekNumber(w)}</div>
                     </th>
                   ))}
                 </tr>
@@ -263,18 +262,18 @@ export default function AdminDensityPage({ onClose, onWeekly }: Props) {
                         <span className={`text-xs font-bold ${CATEGORY_TEXT[cat]}`}>{cat}</span>
                       </span>
                     </td>
-                    {block.dates.map(d => {
-                      const val = block.pivot[cat]?.[d]
+                    {block.weeks.map(w => {
+                      const val = block.pivot[cat]?.[w]
                       return (
                         <td
-                          key={d}
+                          key={w}
                           className="border-b border-r border-gray-200 text-center text-xs py-3 px-1"
                           style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                         >
                           {val ? (
                             <span className={`font-semibold ${
-                              val >= 3000 ? 'text-green-600' :
-                              val >= 1500 ? 'text-blue-600' :
+                              val >= 9000 ? 'text-green-600' :
+                              val >= 4500 ? 'text-blue-600' :
                               'text-gray-700'
                             }`}>
                               {val.toLocaleString()}
@@ -296,18 +295,18 @@ export default function AdminDensityPage({ onClose, onWeekly }: Props) {
                   >
                     סה״כ
                   </td>
-                  {block.dates.map(d => {
-                    const val = block.totals[d]
+                  {block.weeks.map(w => {
+                    const val = block.totals[w]
                     return (
                       <td
-                        key={d}
+                        key={w}
                         className="border-t-2 border-r border-gray-600 text-center text-xs py-3 px-1"
                         style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                       >
                         {val ? (
                           <span className={`font-bold ${
-                            val >= 10000 ? 'text-green-400' :
-                            val >= 5000  ? 'text-blue-400' :
+                            val >= 30000 ? 'text-green-400' :
+                            val >= 15000 ? 'text-blue-400' :
                             'text-gray-300'
                           }`}>
                             {val.toLocaleString()}
@@ -324,11 +323,13 @@ export default function AdminDensityPage({ onClose, onWeekly }: Props) {
           ))}
         </div>
       )}
+
       {helpOpen && (
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
           { title: 'סינון משתמשים', body: 'לחץ על הדרופדאון לבחירת משתמש ספציפי או "כל המשתמשים". ניתן לבחור מספר משתמשים.' },
-          { title: 'קריאת הטבלה', body: 'כל בלוק = משתמש אחד עם שמו בראש. שורות = קבוצות שרירים, עמודות = תאריכים.' },
-          { title: 'שימוש', body: 'זיהוי עומס אימון לפי משתמש וקבוצת שריר לאורך זמן.' },
+          { title: 'קריאת הטבלה', body: 'כל בלוק = משתמש אחד. עמודות = שבועות. התאריך = יום ראשון של השבוע.' },
+          { title: 'צבעים', body: 'ירוק ≥ 9,000 · כחול ≥ 4,500 · אפור < 4,500 (לפי קטגוריה). סה"כ: ירוק ≥ 30,000 · כחול ≥ 15,000.' },
+          { title: 'שימוש', body: 'מעקב עומס אימון שבועי לפי קבוצת שריר עבור כל החניכים.' },
         ]} />
       )}
     </div>
