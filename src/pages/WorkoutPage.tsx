@@ -195,6 +195,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         onAdminPage={() => { setAdminHubOpen(false); setAdminOpen(true) }}
         onAdminProgress={() => { setAdminHubOpen(false); setAdminProgressOpen(true) }}
         onAdminDensity={() => { setAdminHubOpen(false); setAdminDensityOpen(true) }}
+        onAdminWeeklyDensity={() => { setAdminHubOpen(false); setAdminWeeklyDensityOpen(true) }}
       />
     )
   }
@@ -223,7 +224,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   }
 
   if (adminWeeklyDensityOpen) {
-    return <AdminWeeklyDensityPage onClose={() => { setAdminWeeklyDensityOpen(false); setAdminDensityOpen(true) }} />
+    return <AdminWeeklyDensityPage onClose={() => { setAdminWeeklyDensityOpen(false); setAdminHubOpen(true) }} />
   }
 
   if (adminDensityOpen) {
