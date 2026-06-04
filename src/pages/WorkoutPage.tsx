@@ -215,7 +215,6 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return <DensityPage
       userId={userId}
       onClose={() => { setDensityOpen(false); setReportsHubOpen(true) }}
-      onWeekly={() => { setDensityOpen(false); setWeeklyDensityOpen(true) }}
     />
   }
 
@@ -228,10 +227,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   }
 
   if (adminDensityOpen) {
-    return <AdminDensityPage
-      onClose={() => setAdminDensityOpen(false)}
-      onWeekly={() => { setAdminDensityOpen(false); setAdminWeeklyDensityOpen(true) }}
-    />
+    return <AdminDensityPage onClose={() => setAdminDensityOpen(false)} />
   }
 
   if (guideOpen) {

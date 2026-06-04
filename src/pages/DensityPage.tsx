@@ -5,7 +5,6 @@ import HelpModal from '../components/HelpModal'
 interface Props {
   userId: string
   onClose: () => void
-  onWeekly: () => void
 }
 
 const CATEGORY_ORDER = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
@@ -35,7 +34,7 @@ function formatDay(dateStr: string) {
   return DAYS_HE[new Date(dateStr).getDay()]
 }
 
-export default function DensityPage({ userId, onClose, onWeekly }: Props) {
+export default function DensityPage({ userId, onClose }: Props) {
   const [dates, setDates]   = useState<string[]>([])
   const [pivot, setPivot]   = useState<Record<string, Record<string, number>>>({})
   const [totals, setTotals] = useState<Record<string, number>>({})
@@ -104,10 +103,7 @@ export default function DensityPage({ userId, onClose, onWeekly }: Props) {
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
         <h1 className="text-gray-800 font-bold text-lg">עצימות יומית לפי קבוצת שרירים</h1>
-        <div className="flex items-center gap-2">
-          <button onClick={onWeekly} className="text-blue-500 hover:text-blue-700 text-xs font-semibold border border-blue-300 rounded-lg px-2 py-1">שבועי →</button>
-          <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
-        </div>
+        <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
       </div>
 
       {/* Table */}
