@@ -6,9 +6,10 @@ interface Props {
   onHistory: () => void
   onProgress: () => void
   onDensity: () => void
+  onWeeklyDensity: () => void
 }
 
-export default function ReportsHub({ onClose, onHistory, onProgress, onDensity }: Props) {
+export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, onWeeklyDensity }: Props) {
   const [helpOpen, setHelpOpen] = useState(false)
 
   return (
@@ -38,6 +39,12 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity }
           description="עצימות לפי קבוצת שריר לכל יום אימון"
           onClick={onDensity}
         />
+        <HubCard
+          icon="📅"
+          title="עצימות שבועית"
+          description="עצימות מצטברת לפי קבוצת שריר לכל שבוע"
+          onClick={onWeeklyDensity}
+        />
       </div>
 
       {helpOpen && (
@@ -45,6 +52,7 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity }
           { title: 'היסטוריית אימונים', body: 'סיכום כל התרגילים שבוצעו — מספר סטים, ממוצע חזרות ומשקל מקסימלי.' },
           { title: 'התקדמות עצימות', body: 'טבלת עצימות לפי תרגיל ותאריך — לזיהוי מגמות התקדמות.' },
           { title: 'עצימות יומית', body: 'עצימות לפי קבוצת שריר לכל יום אימון — לאיזון העומס בין האימונים.' },
+          { title: 'עצימות שבועית', body: 'עצימות מצטברת לפי קבוצת שריר לכל שבוע — לזיהוי מגמות עומס לאורך זמן.' },
         ]} />
       )}
     </div>
