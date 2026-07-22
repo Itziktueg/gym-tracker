@@ -8,7 +8,7 @@ interface Props {
 }
 
 const PERIODS = [
-  { label: 'שבוע זה', days: -1 },
+  { label: 'השבוע',   days: -1 },
   { label: '7 ימים',  days: 7  },
   { label: '30 ימים', days: 30 },
   { label: '90 ימים', days: 90 },
