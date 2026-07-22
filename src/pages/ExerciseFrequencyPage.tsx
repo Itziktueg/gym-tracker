@@ -52,6 +52,7 @@ export default function ExerciseFrequencyPage({ userId, onClose }: Props) {
       .from('exercises_user')
       .select('id, name_he, category')
       .eq('user_id', userId)
+      .eq('is_active', true)
 
     let query = supabase
       .from('workout_logs')
@@ -65,27 +66,25 @@ export default function ExerciseFrequencyPage({ userId, onClose }: Props) {
 
     const { data: logs } = await query
 
-    if (!logs || !exData) { setLoading(false); return }
-
-    const exMap: Record<string, { name_he: string; category: string }> = {}
-    for (const ex of exData) exMap[ex.id] = { name_he: ex.name_he, category: ex.category ?? '' }
+    if (!exData) { setLoading(false); return }
 
     // Count distinct workout days per exercise
     const dayCounts: Record<string, Set<string>> = {}
-    for (const log of logs) {
+    for (const log of (logs ?? [])) {
       const date = log.logged_at.slice(0, 10)
       if (!dayCounts[log.exercise_id]) dayCounts[log.exercise_id] = new Set()
       dayCounts[log.exercise_id].add(date)
     }
 
-    const result: ExFreq[] = Object.entries(dayCounts)
-      .map(([exerciseId, dates]) => ({
-        exerciseId,
-        name_he:  exMap[exerciseId]?.name_he  ?? exerciseId,
-        category: exMap[exerciseId]?.category ?? '',
-        count:    dates.size,
+    // Include ALL active exercises, even those with 0 occurrences
+    const result: ExFreq[] = exData
+      .map(ex => ({
+        exerciseId: ex.id,
+        name_he:    ex.name_he,
+        category:   ex.category ?? '',
+        count:      dayCounts[ex.id]?.size ?? 0,
       }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => b.count - a.count || a.name_he.localeCompare(b.name_he, 'he'))
 
     setRows(result)
     setLoading(false)
@@ -123,10 +122,6 @@ export default function ExerciseFrequencyPage({ userId, onClose }: Props) {
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-400">טוען...</p>
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-400 text-sm">לא נמצאו אימונים בתקופה זו</p>
         </div>
       ) : (
         <div className="flex-1 overflow-auto">
