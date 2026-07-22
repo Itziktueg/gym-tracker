@@ -8,11 +8,20 @@ interface Props {
 }
 
 const PERIODS = [
+  { label: 'שבוע זה', days: -1 },
   { label: '7 ימים',  days: 7  },
   { label: '30 ימים', days: 30 },
   { label: '90 ימים', days: 90 },
   { label: 'הכל',     days: 0  },
 ]
+
+function thisWeekSince(): string {
+  const today = new Date()
+  const sunday = new Date(today)
+  sunday.setDate(today.getDate() - today.getDay()) // rewind to Sunday
+  sunday.setHours(0, 0, 0, 0)
+  return sunday.toISOString()
+}
 
 const CATEGORY_DOT: Record<string, string> = {
   'פלג גוף תחתון': 'bg-blue-500',
@@ -59,7 +68,9 @@ export default function ExerciseFrequencyPage({ userId, onClose }: Props) {
       .select('exercise_id, logged_at')
       .eq('user_id', userId)
 
-    if (periodDays > 0) {
+    if (periodDays === -1) {
+      query = query.gte('logged_at', thisWeekSince())
+    } else if (periodDays > 0) {
       const since = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString()
       query = query.gte('logged_at', since)
     }
