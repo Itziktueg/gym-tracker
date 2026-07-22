@@ -15,6 +15,7 @@ import AdminProgressPage from './AdminProgressPage'
 import AdminDensityPage from './AdminDensityPage'
 import WeeklyDensityPage from './WeeklyDensityPage'
 import AdminWeeklyDensityPage from './AdminWeeklyDensityPage'
+import ExerciseFrequencyPage from './ExerciseFrequencyPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
 import UserGuidePage from './UserGuidePage'
 import HelpModal from '../components/HelpModal'
@@ -61,6 +62,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [adminDensityOpen, setAdminDensityOpen] = useState(false)
   const [weeklyDensityOpen, setWeeklyDensityOpen] = useState(false)
   const [adminWeeklyDensityOpen, setAdminWeeklyDensityOpen] = useState(false)
+  const [frequencyOpen, setFrequencyOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -184,6 +186,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         onProgress={() => { setReportsHubOpen(false); setProgressOpen(true) }}
         onDensity={() => { setReportsHubOpen(false); setDensityOpen(true) }}
         onWeeklyDensity={() => { setReportsHubOpen(false); setWeeklyDensityOpen(true) }}
+        onFrequency={() => { setReportsHubOpen(false); setFrequencyOpen(true) }}
       />
     )
   }
@@ -210,6 +213,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
   if (weeklyDensityOpen) {
     return <WeeklyDensityPage userId={userId} onClose={() => { setWeeklyDensityOpen(false); setReportsHubOpen(true) }} />
+  }
+
+  if (frequencyOpen) {
+    return <ExerciseFrequencyPage userId={userId} onClose={() => { setFrequencyOpen(false); setReportsHubOpen(true) }} />
   }
 
   if (densityOpen) {
