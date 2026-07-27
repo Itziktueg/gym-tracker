@@ -23,6 +23,7 @@ const EMPTY_FORM = {
   default_reps:   12,
   default_weight: 0,
   is_bilateral:   false,
+  double_weight:  false,
   notes:          '',
   image_url:      null as string | null,
   sort_order:     999,
@@ -154,6 +155,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
       default_reps:   ex.default_reps,
       default_weight: ex.default_weight,
       is_bilateral:   ex.is_bilateral,
+      double_weight:  ex.double_weight,
       notes:          ex.notes ?? '',
       image_url:      ex.image_url,
       sort_order:     ex.sort_order,
@@ -221,6 +223,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
             default_reps:       formData.default_reps,
             default_weight:     formData.default_weight,
             is_bilateral:       formData.is_bilateral,
+            double_weight:      formData.double_weight,
             notes:              formData.notes.trim() || null,
             category:           formData.category,
             sort_order:         formData.sort_order,
@@ -245,6 +248,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
             default_reps:   formData.default_reps,
             default_weight: formData.default_weight,
             is_bilateral:   formData.is_bilateral,
+            double_weight:  formData.double_weight,
             notes:          formData.notes.trim() || null,
             category:       formData.category,
             sort_order:     formData.sort_order,
@@ -277,6 +281,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
             default_reps:       formData.default_reps,
             default_weight:     formData.default_weight,
             is_bilateral:       formData.is_bilateral,
+            double_weight:      formData.double_weight,
             notes:              formData.notes.trim() || null,
             category:           formData.category,
             sort_order:         formData.sort_order,
@@ -302,6 +307,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
         default_reps:   formData.default_reps,
         default_weight: formData.default_weight,
         is_bilateral:   formData.is_bilateral,
+        double_weight:  formData.double_weight,
         notes:          formData.notes.trim() || null,
         category:       formData.category,
         sort_order:     formData.sort_order,
@@ -548,6 +554,13 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
               <span className="text-gray-700 text-sm">תרגיל דו-צדדי (מכפיל חזרות)</span>
             </label>
 
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={formData.double_weight}
+                onChange={e => setFormData({ ...formData, double_weight: e.target.checked })}
+                className="w-4 h-4" />
+              <span className="text-gray-700 text-sm">כפל משקל (משקל בשתי ידיים)</span>
+            </label>
+
             <Field label="הערות">
               <textarea value={formData.notes}
                 onChange={e => setFormData({ ...formData, notes: e.target.value })}
@@ -656,7 +669,7 @@ function SortableExerciseRow({ exercise: ex, uploadingId, onImageClick, onEdit, 
       {/* Name */}
       <div className="flex-1 min-w-0">
         <p className="text-gray-800 font-medium text-sm truncate">{ex.name_he}</p>
-        <p className="text-gray-400 text-xs">{ex.category}{ex.is_bilateral ? ' · דו-צדדי' : ''}</p>
+        <p className="text-gray-400 text-xs">{ex.category}{ex.is_bilateral ? ' · דו-צדדי' : ''}{ex.double_weight ? ' · כפל משקל' : ''}</p>
       </div>
 
       {/* Edit */}

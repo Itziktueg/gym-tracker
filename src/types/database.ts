@@ -27,6 +27,7 @@ export interface ExerciseGlobal {
   default_reps: number
   default_weight: number
   is_bilateral: boolean
+  double_weight: boolean
   notes: string | null
   category: string | null
   sort_order: number
@@ -51,6 +52,7 @@ export interface ExerciseUser {
   default_reps: number
   default_weight: number
   is_bilateral: boolean
+  double_weight: boolean
   notes: string | null
   category: string | null
   sort_order: number

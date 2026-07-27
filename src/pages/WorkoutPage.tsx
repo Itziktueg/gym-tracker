@@ -97,6 +97,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             default_reps: ex.default_reps,
             default_weight: ex.default_weight,
             is_bilateral: ex.is_bilateral,
+            double_weight: ex.double_weight,
             notes: ex.notes,
             category: ex.category,
             sort_order: ex.sort_order,

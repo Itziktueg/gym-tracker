@@ -54,7 +54,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
       sets_completed: 1,
       reps_completed: line.reps,
       weight:         line.weight,
-      intensity:      line.reps * line.weight * (exercise.is_bilateral ? 2 : 1),
+      intensity:      line.reps * line.weight * ((exercise.is_bilateral || exercise.double_weight) ? 2 : 1),
       logged_at:      loggedAt.toISOString(),
     }))
     const { data } = await supabase.from('workout_logs').insert(records).select()

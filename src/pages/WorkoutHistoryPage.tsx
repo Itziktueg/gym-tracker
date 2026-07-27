@@ -30,6 +30,7 @@ interface ExerciseHistory {
   name: string
   category: string
   bilateral: boolean
+  doubleWeight: boolean
   entries: ExerciseEntry[]   // sorted date desc, max 30
 }
 
@@ -57,13 +58,13 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
 
       const { data: exercises } = await supabase
         .from('exercises_user')
-        .select('id, name_he, category, is_bilateral')
+        .select('id, name_he, category, is_bilateral, double_weight')
         .eq('user_id', userId)
 
       if (!logs || !exercises) { setLoading(false); return }
 
-      const exMap: Record<string, { name: string; category: string; bilateral: boolean }> = {}
-      for (const ex of exercises) exMap[ex.id] = { name: ex.name_he, category: ex.category ?? '', bilateral: ex.is_bilateral ?? false }
+      const exMap: Record<string, { name: string; category: string; bilateral: boolean; doubleWeight: boolean }> = {}
+      for (const ex of exercises) exMap[ex.id] = { name: ex.name_he, category: ex.category ?? '', bilateral: ex.is_bilateral ?? false, doubleWeight: ex.double_weight ?? false }
 
       // Aggregate by exercise × date
       const histMap: Record<string, Record<string, ExerciseEntry>> = {}
@@ -87,6 +88,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
           name:     exMap[id]?.name     ?? id,
           category: exMap[id]?.category ?? '',
           bilateral: exMap[id]?.bilateral ?? false,
+          doubleWeight: exMap[id]?.doubleWeight ?? false,
           entries:  Object.values(byDate)
             .sort((a, b) => b.date.localeCompare(a.date))
             .slice(0, 30),
@@ -170,7 +172,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                         // Old format: intensity stored as sets×reps×weight×bilateral per row.
                         // New format: intensity stored as reps×weight×bilateral per row; sum = same total.
                         // Fallback to reps_sum/rows when weight=0 (bodyweight exercises).
-                        const bilat = ex.bilateral ? 2 : 1
+                        const bilat = (ex.bilateral || ex.doubleWeight) ? 2 : 1
                         const repsDisplay = entry.sets > 0 && entry.weight > 0
                           ? Math.round(entry.intensity / (entry.sets * entry.weight * bilat))
                           : entry.rows > 0 ? Math.round(entry.reps / entry.rows) : entry.reps

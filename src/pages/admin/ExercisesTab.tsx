@@ -22,6 +22,7 @@ const EMPTY: Omit<ExerciseGlobal, 'id' | 'created_at'> = {
   default_reps: 12,
   default_weight: 0,
   is_bilateral: false,
+  double_weight: false,
   notes: null,
   category: CATEGORIES[0],
   sort_order: 999,
@@ -122,11 +123,12 @@ export default function ExercisesTab() {
         setExercises(prev => prev.map(e => e.id === updated.id ? updated : e))
         // Propagate factual fields to all users who have this global exercise
         const propagate: Record<string, unknown> = {
-          name_he:      updated.name_he,
-          name_en:      updated.name_en,
-          category:     updated.category,
-          video_url:    updated.video_url,
-          is_bilateral: updated.is_bilateral,
+          name_he:       updated.name_he,
+          name_en:       updated.name_en,
+          category:      updated.category,
+          video_url:     updated.video_url,
+          is_bilateral:  updated.is_bilateral,
+          double_weight: updated.double_weight,
         }
         if (updated.image_url) propagate.image_url = updated.image_url
         await supabase
@@ -275,6 +277,16 @@ export default function ExercisesTab() {
               className="w-4 h-4"
             />
             <span className="text-gray-700 text-sm">תרגיל דו-צדדי (מכפיל חזרות)</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={editing.double_weight}
+              onChange={e => setEditing({ ...editing, double_weight: e.target.checked })}
+              className="w-4 h-4"
+            />
+            <span className="text-gray-700 text-sm">כפל משקל (משקל בשתי ידיים)</span>
           </label>
 
           <Field label="הערות">
