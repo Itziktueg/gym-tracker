@@ -186,6 +186,7 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
       default_reps:   g.default_reps,
       default_weight: g.default_weight,
       is_bilateral:   g.is_bilateral,
+      double_weight:  g.double_weight,
       notes:          g.notes ?? '',
       image_url:      g.image_url,
       sort_order:     g.sort_order ?? 999,
