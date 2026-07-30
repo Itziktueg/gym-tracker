@@ -10,6 +10,7 @@ interface Props {
   onClose: () => void
   onSaved: (exerciseId: string, newLogs: WorkoutLog[]) => void
   onUndo: (exerciseId: string) => void
+  onEditExercise: () => void
 }
 
 interface SetLine {
@@ -17,7 +18,7 @@ interface SetLine {
   weight: number
 }
 
-export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo }: Props) {
+export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise }: Props) {
   const numSets = Math.max(exercise.default_sets, 1)
 
   const [lines, setLines] = useState<SetLine[]>(
@@ -102,20 +103,37 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           >
             ×
           </button>
-          <h2 className="text-gray-800 text-lg font-bold text-center flex-1 ps-10">
+          <h2 className="text-gray-800 text-lg font-bold text-center flex-1">
             {exercise.name_he}
           </h2>
+          <button
+            onClick={onEditExercise}
+            className="text-gray-400 hover:text-gray-600 w-10 h-10 flex items-center justify-center text-lg"
+            title="עריכת תרגיל"
+          >
+            ✏️
+          </button>
         </div>
 
-        {exercise.video_url && (
-          <a
-            href={exercise.video_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-center text-blue-400 text-sm mb-5 hover:text-blue-300"
-          >
-            צפה בהדגמה ↗
-          </a>
+        {(exercise.video_url || exercise.notes) && (
+          <div className="flex items-center justify-center gap-4 mb-4">
+            {exercise.video_url && (
+              <a
+                href={exercise.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 text-sm hover:text-blue-300"
+              >
+                צפה בהדגמה ↗
+              </a>
+            )}
+          </div>
+        )}
+
+        {exercise.notes && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2.5 mb-4 text-amber-800 text-sm leading-relaxed">
+            {exercise.notes}
+          </div>
         )}
 
         {/* Set rows */}

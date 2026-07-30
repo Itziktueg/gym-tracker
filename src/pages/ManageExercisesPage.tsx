@@ -33,13 +33,14 @@ type FormData = typeof EMPTY_FORM
 interface Props {
   userId: string
   onClose: () => void
+  initialEditId?: string
 }
 
 function sortByOrder(arr: ExerciseUser[]) {
   return [...arr].sort((a, b) => a.sort_order - b.sort_order || a.name_he.localeCompare(b.name_he, 'he'))
 }
 
-export default function ManageExercisesPage({ userId, onClose }: Props) {
+export default function ManageExercisesPage({ userId, onClose, initialEditId }: Props) {
   const [exercises, setExercises]   = useState<ExerciseUser[]>([])
   const [globalLib, setGlobalLib]   = useState<ExerciseGlobal[]>([])
   const [loading, setLoading]       = useState(true)
@@ -89,8 +90,12 @@ export default function ManageExercisesPage({ userId, onClose }: Props) {
       setExercises(userData ?? [])
       setGlobalLib(globalData ?? [])
       setLoading(false)
+      if (initialEditId) {
+        const target = (userData ?? []).find(e => e.id === initialEditId)
+        if (target) openEdit(target)
+      }
     })
-  }, [userId])
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── List: quick image upload ───────────────────────────────
   function handleImageClick(exerciseId: string) {

@@ -67,6 +67,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [guideOpen, setGuideOpen] = useState(false)
   const [weekMode, setWeekMode] = useState(false)
   const [weeklyIds, setWeeklyIds] = useState<Set<string>>(new Set())
+  const [editExerciseId, setEditExerciseId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const isToday = isSameDay(selectedDate, new Date())
@@ -268,7 +269,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return (
       <ManageExercisesPage
         userId={userId}
-        onClose={() => { setManaging(false); fetchExercises() }}
+        initialEditId={editExerciseId ?? undefined}
+        onClose={() => { setManaging(false); setEditExerciseId(null); fetchExercises() }}
       />
     )
   }
@@ -369,6 +371,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           onClose={() => setSelected(null)}
           onSaved={handleSaved}
           onUndo={handleUndo}
+          onEditExercise={() => { setEditExerciseId(selected.id); setSelected(null); setManaging(true) }}
         />
       )}
 
