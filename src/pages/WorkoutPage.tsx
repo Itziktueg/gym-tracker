@@ -65,6 +65,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [frequencyOpen, setFrequencyOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [weekMode, setWeekMode] = useState(false)
+  const [weeklyIds, setWeeklyIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
 
   const isToday = isSameDay(selectedDate, new Date())
@@ -129,6 +131,24 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     setViewLogs(data ?? [])
   }, [userId])
 
+  async function fetchWeeklyIds() {
+    const today = new Date()
+    const sunday = new Date(today)
+    sunday.setDate(today.getDate() - today.getDay())
+    sunday.setHours(0, 0, 0, 0)
+    const { data } = await supabase
+      .from('workout_logs')
+      .select('exercise_id')
+      .eq('user_id', userId)
+      .gte('logged_at', sunday.toISOString())
+    setWeeklyIds(new Set((data ?? []).map(r => r.exercise_id)))
+  }
+
+  function toggleWeekMode() {
+    if (!weekMode) fetchWeeklyIds()
+    setWeekMode(v => !v)
+  }
+
   useEffect(() => { fetchExercises() }, [fetchExercises])
   useEffect(() => { fetchLogsForDate(selectedDate) }, [fetchLogsForDate, selectedDate])
 
@@ -157,6 +177,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
       ...prev.filter(l => l.exercise_id !== exerciseId),
       ...newLogs,
     ])
+    if (weekMode) setWeeklyIds(prev => new Set([...prev, exerciseId]))
     setSelected(null)
   }
 
@@ -279,6 +300,13 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             >
               📖
             </button>
+            <button
+              onClick={toggleWeekMode}
+              className={`text-xl transition-opacity ${weekMode ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+              title="הצג תרגילים שבוצעו השבוע"
+            >
+              🗓
+            </button>
           </div>
           <span className="absolute left-1/2 -translate-x-1/2 text-gray-700 font-bold text-base pointer-events-none">מעקב אימונים</span>
           <div className="flex items-center gap-2">
@@ -325,6 +353,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             key={ex.id}
             exercise={ex}
             completedToday={loggedIds.has(ex.id)}
+            completedThisWeek={weeklyIds.has(ex.id)}
+            weekMode={weekMode}
             onPress={() => setSelected(ex)}
           />
         ))}

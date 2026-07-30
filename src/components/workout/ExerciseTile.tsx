@@ -12,11 +12,21 @@ const FALLBACK = { from: 'from-gray-100', to: 'to-gray-200', icon: '🏃' }
 interface Props {
   exercise: ExerciseUser
   completedToday: boolean
+  completedThisWeek?: boolean
+  weekMode?: boolean
   onPress: () => void
 }
 
-export default function ExerciseTile({ exercise, completedToday, onPress }: Props) {
+export default function ExerciseTile({ exercise, completedToday, completedThisWeek, weekMode, onPress }: Props) {
   const cat = CATEGORY[exercise.category ?? ''] ?? FALLBACK
+
+  const ringClass = weekMode
+    ? (completedThisWeek ? 'ring-[3px] ring-red-500' : 'ring-1 ring-black/10')
+    : (completedToday    ? 'ring-[3px] ring-green-500' : 'ring-1 ring-black/10')
+
+  const dotColor = weekMode
+    ? (completedThisWeek ? 'bg-red-500' : '')
+    : (completedToday    ? 'bg-green-500' : '')
 
   return (
     <button
@@ -24,13 +34,13 @@ export default function ExerciseTile({ exercise, completedToday, onPress }: Prop
       className={`
         relative rounded-xl overflow-hidden flex flex-col w-full
         bg-gradient-to-b ${cat.from} ${cat.to}
-        ${completedToday ? 'ring-2 ring-green-500' : 'ring-1 ring-black/10'}
+        ${ringClass}
         active:scale-95 transition-transform
       `}
       style={{ aspectRatio: '1/1' }}
     >
-      {completedToday && (
-        <span className="absolute top-1 start-1 w-2 h-2 bg-green-500 rounded-full" />
+      {dotColor && (
+        <span className={`absolute top-1 start-1 w-2 h-2 ${dotColor} rounded-full`} />
       )}
 
       {exercise.image_url ? (
