@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { ExerciseUser, WorkoutLog } from '../types/database'
 import DailySummary from '../components/workout/DailySummary'
@@ -132,6 +132,38 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     setViewLogs(data ?? [])
   }, [userId])
 
+  // ── Android back-button handling ──────────────────────────
+  const backHandlerRef = useRef(() => {})
+  backHandlerRef.current = () => {
+    if (historyOpen)            { history.pushState(null, ''); setHistoryOpen(false); setReportsHubOpen(true); return }
+    if (reportsHubOpen)         { history.pushState(null, ''); setReportsHubOpen(false); return }
+    if (adminHubOpen)           { history.pushState(null, ''); setAdminHubOpen(false); return }
+    if (adminOpen)              { history.pushState(null, ''); setAdminOpen(false); setAdminHubOpen(true); return }
+    if (progressOpen)           { history.pushState(null, ''); setProgressOpen(false); setReportsHubOpen(true); return }
+    if (weeklyDensityOpen)      { history.pushState(null, ''); setWeeklyDensityOpen(false); setReportsHubOpen(true); return }
+    if (frequencyOpen)          { history.pushState(null, ''); setFrequencyOpen(false); setReportsHubOpen(true); return }
+    if (densityOpen)            { history.pushState(null, ''); setDensityOpen(false); setReportsHubOpen(true); return }
+    if (adminProgressOpen)      { history.pushState(null, ''); setAdminProgressOpen(false); setAdminHubOpen(true); return }
+    if (adminWeeklyDensityOpen) { history.pushState(null, ''); setAdminWeeklyDensityOpen(false); setAdminHubOpen(true); return }
+    if (adminDensityOpen)       { history.pushState(null, ''); setAdminDensityOpen(false); setAdminHubOpen(true); return }
+    if (guideOpen)              { history.pushState(null, ''); setGuideOpen(false); return }
+    if (managing)               { history.pushState(null, ''); setManaging(false); setEditExerciseId(null); fetchExercises(); return }
+    if (selected)               { history.pushState(null, ''); setSelected(null); return }
+    // Main screen — ask before leaving
+    if (window.confirm('לצאת מהאפליקציה?')) {
+      // Don't push — let the browser navigate back / close the PWA
+    } else {
+      history.pushState(null, '')
+    }
+  }
+
+  useEffect(() => {
+    history.pushState(null, '') // sentinel entry so first back triggers popstate
+    const onPop = () => backHandlerRef.current()
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function fetchWeeklyIds() {
     const today = new Date()
     const sunday = new Date(today)
@@ -227,7 +259,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   }
 
   if (adminOpen) {
-    return <AdminPage onClose={() => setAdminOpen(false)} adminId={userId} />
+    return <AdminPage onClose={() => { setAdminOpen(false); setAdminHubOpen(true) }} adminId={userId} />
   }
 
   if (progressOpen) {
@@ -250,7 +282,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   }
 
   if (adminProgressOpen) {
-    return <AdminProgressPage onClose={() => setAdminProgressOpen(false)} />
+    return <AdminProgressPage onClose={() => { setAdminProgressOpen(false); setAdminHubOpen(true) }} />
   }
 
   if (adminWeeklyDensityOpen) {
@@ -258,7 +290,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   }
 
   if (adminDensityOpen) {
-    return <AdminDensityPage onClose={() => setAdminDensityOpen(false)} />
+    return <AdminDensityPage onClose={() => { setAdminDensityOpen(false); setAdminHubOpen(true) }} />
   }
 
   if (guideOpen) {
