@@ -67,6 +67,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [guideOpen, setGuideOpen] = useState(false)
   const [weekMode, setWeekMode] = useState(false)
   const [weeklyIds, setWeeklyIds] = useState<Set<string>>(new Set())
+  const [weeklyLogs, setWeeklyLogs] = useState<WorkoutLog[]>([])
   const [editExerciseId, setEditExerciseId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -164,21 +165,23 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return () => window.removeEventListener('popstate', onPop)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function fetchWeeklyIds() {
+  async function fetchWeeklyData() {
     const today = new Date()
     const sunday = new Date(today)
     sunday.setDate(today.getDate() - today.getDay())
     sunday.setHours(0, 0, 0, 0)
     const { data } = await supabase
       .from('workout_logs')
-      .select('exercise_id')
+      .select('*')
       .eq('user_id', userId)
       .gte('logged_at', sunday.toISOString())
-    setWeeklyIds(new Set((data ?? []).map(r => r.exercise_id)))
+    const logs = (data ?? []) as WorkoutLog[]
+    setWeeklyLogs(logs)
+    setWeeklyIds(new Set(logs.map(r => r.exercise_id)))
   }
 
   function toggleWeekMode() {
-    if (!weekMode) fetchWeeklyIds()
+    if (!weekMode) fetchWeeklyData()
     setWeekMode(v => !v)
   }
 
@@ -210,7 +213,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
       ...prev.filter(l => l.exercise_id !== exerciseId),
       ...newLogs,
     ])
-    if (weekMode) setWeeklyIds(prev => new Set([...prev, exerciseId]))
+    if (weekMode) {
+      setWeeklyIds(prev => new Set([...prev, exerciseId]))
+      setWeeklyLogs(prev => [...prev.filter(l => l.exercise_id !== exerciseId), ...newLogs])
+    }
     setSelected(null)
   }
 
@@ -379,6 +385,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         isToday={isToday}
         onPrev={goBack}
         onNext={goForward}
+        weekMode={weekMode}
+        weeklyLogs={weeklyLogs}
       />
 
       <div className="grid grid-cols-3 gap-2 p-3">
