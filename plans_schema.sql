@@ -28,37 +28,15 @@ CREATE TABLE workout_plan_exercises (
 
 ALTER TABLE workout_plan_exercises ENABLE ROW LEVEL SECURITY;
 
--- ── RLS: workout_plans ──────────────────────────────────────
-CREATE POLICY "users read own plans"
-  ON workout_plans FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "users insert own plans"
-  ON workout_plans FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "users update own plans"
-  ON workout_plans FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "users delete own plans"
-  ON workout_plans FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY "admins read all plans"
-  ON workout_plans FOR SELECT USING (is_admin());
-
--- ── RLS: workout_plan_exercises ─────────────────────────────
-CREATE POLICY "users read own plan exercises"
-  ON workout_plan_exercises FOR SELECT
-  USING (EXISTS (SELECT 1 FROM workout_plans p WHERE p.id = plan_id AND p.user_id = auth.uid()));
-
-CREATE POLICY "users insert own plan exercises"
-  ON workout_plan_exercises FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM workout_plans p WHERE p.id = plan_id AND p.user_id = auth.uid()));
-
-CREATE POLICY "users delete own plan exercises"
-  ON workout_plan_exercises FOR DELETE
-  USING (EXISTS (SELECT 1 FROM workout_plans p WHERE p.id = plan_id AND p.user_id = auth.uid()));
-
-CREATE POLICY "admins read all plan exercises"
-  ON workout_plan_exercises FOR SELECT USING (is_admin());
+-- ── RLS policies ────────────────────────────────────────────
+-- Defined in plans_fix_rls.sql — run that file after this one.
+-- Kept separate because a combined script aborts on re-run
+-- ("relation already exists") before reaching the policies, which
+-- leaves RLS enabled with zero policies: SELECTs silently return
+-- nothing and every INSERT is rejected. That is exactly what
+-- happened on 2026-08-06.
+--
+--   psql / SQL editor:  run plans_fix_rls.sql
 
 -- ── Grants ──────────────────────────────────────────────────
 GRANT SELECT, INSERT, UPDATE, DELETE ON workout_plans          TO authenticated;
