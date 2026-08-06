@@ -67,15 +67,23 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON workout_plan_exercises TO authenticated;
 -- ============================================================
 -- SEED — register every user's current exercises as "תוכנית 1"
 -- ============================================================
-INSERT INTO workout_plans (user_id, name, start_date)
-SELECT DISTINCT user_id, 'תוכנית 1', CURRENT_DATE
-FROM exercises_user
-WHERE is_active = true;
-
-INSERT INTO workout_plan_exercises (plan_id, exercise_id)
-SELECT p.id, e.id
-FROM workout_plans p
-JOIN exercises_user e
-  ON e.user_id = p.user_id
- AND e.is_active = true
-WHERE p.end_date IS NULL;
+-- NOTE: do NOT run the seed from the Supabase SQL editor. The policies on
+-- exercises_user are USING (auth.uid() = user_id), and auth.uid() is NULL
+-- there, so the SELECT below matches zero rows and the INSERT silently
+-- inserts nothing. The DDL above is unaffected — only this data step is.
+--
+-- Run seed_plan1.mjs instead (service role key bypasses RLS). It is
+-- idempotent: users that already have an active plan are skipped.
+--
+--   node seed_plan1.mjs
+--
+-- Kept here for reference only:
+--
+-- INSERT INTO workout_plans (user_id, name, start_date)
+-- SELECT DISTINCT user_id, 'תוכנית 1', CURRENT_DATE
+-- FROM exercises_user WHERE is_active = true;
+--
+-- INSERT INTO workout_plan_exercises (plan_id, exercise_id)
+-- SELECT p.id, e.id FROM workout_plans p
+-- JOIN exercises_user e ON e.user_id = p.user_id AND e.is_active = true
+-- WHERE p.end_date IS NULL;
