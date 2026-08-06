@@ -99,6 +99,7 @@ export default function PlanPage({ userId, onClose }: Props) {
   const [draftName, setDraftName] = useState('')
   const [saving,    setSaving]    = useState(false)
   const [helpOpen,  setHelpOpen]  = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
 
   const todayISO = toISODate(new Date())
   const isSunday = new Date().getDay() === 0
@@ -114,13 +115,16 @@ export default function PlanPage({ userId, onClose }: Props) {
 
   async function load() {
     setLoading(true)
-    const [{ data: planData }, { data: exData }] = await Promise.all([
+    const [{ data: planData, error: planErr }, { data: exData }] = await Promise.all([
       supabase.from('workout_plans')
         .select('*').eq('user_id', userId).order('start_date', { ascending: false }),
       supabase.from('exercises_user')
         .select('*').eq('user_id', userId).eq('is_active', true)
         .order('sort_order').order('name_he'),
     ])
+
+    // Without this the UI cannot tell "no plan yet" apart from "read denied"
+    setError(planErr ? `שגיאת קריאה: ${planErr.message}` : null)
 
     const allPlans = (planData ?? []) as WorkoutPlan[]
     setPlans(allPlans)
@@ -154,34 +158,54 @@ export default function PlanPage({ userId, onClose }: Props) {
 
   async function save() {
     if (draftIds.size === 0) {
-      alert('יש לבחור לפחות תרגיל אחד')
+      setError('יש לבחור לפחות תרגיל אחד')
       return
     }
     setSaving(true)
+    setError(null)
     const ids  = [...draftIds]
     const name = draftName.trim() || null
 
+    // Every step is checked — a silent failure here looks identical to "saved"
+    const fail = (step: string, e: { message: string } | null) => {
+      if (!e) return false
+      setError(`${step}: ${e.message}`)
+      setSaving(false)
+      return true
+    }
+
     if (activePlan && startedToday) {
       // Same-day correction — update the plan in place, no new version
-      await supabase.from('workout_plans').update({ name }).eq('id', activePlan.id)
-      await supabase.from('workout_plan_exercises').delete().eq('plan_id', activePlan.id)
-      await supabase.from('workout_plan_exercises')
+      const { error: e1 } = await supabase.from('workout_plans')
+        .update({ name }).eq('id', activePlan.id)
+      if (fail('עדכון שם', e1)) return
+
+      const { error: e2 } = await supabase.from('workout_plan_exercises')
+        .delete().eq('plan_id', activePlan.id)
+      if (fail('מחיקת תרגילים', e2)) return
+
+      const { error: e3 } = await supabase.from('workout_plan_exercises')
         .insert(ids.map(exercise_id => ({ plan_id: activePlan.id, exercise_id })))
+      if (fail('שמירת תרגילים', e3)) return
     } else {
       // Close the old plan yesterday (Saturday) and open the new one today (Sunday)
       if (activePlan) {
         const yesterday = new Date()
         yesterday.setDate(yesterday.getDate() - 1)
-        await supabase.from('workout_plans')
+        const { error: e1 } = await supabase.from('workout_plans')
           .update({ end_date: toISODate(yesterday) }).eq('id', activePlan.id)
+        if (fail('סגירת התוכנית הקודמת', e1)) return
       }
-      const { data: created } = await supabase.from('workout_plans')
+
+      const { data: created, error: e2 } = await supabase.from('workout_plans')
         .insert({ user_id: userId, name, start_date: todayISO })
         .select().single()
-      if (created) {
-        await supabase.from('workout_plan_exercises')
-          .insert(ids.map(exercise_id => ({ plan_id: created.id, exercise_id })))
-      }
+      if (fail('יצירת תוכנית', e2)) return
+      if (!created) { setError('יצירת תוכנית לא החזירה תוצאה'); setSaving(false); return }
+
+      const { error: e3 } = await supabase.from('workout_plan_exercises')
+        .insert(ids.map(exercise_id => ({ plan_id: created.id, exercise_id })))
+      if (fail('שמירת תרגילים', e3)) return
     }
 
     setSaving(false)
@@ -224,6 +248,13 @@ export default function PlanPage({ userId, onClose }: Props) {
       </div>
 
       <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
+            <p className="text-red-800 text-sm font-bold mb-0.5">הפעולה נכשלה</p>
+            <p className="text-red-600 text-xs leading-relaxed break-words">{error}</p>
+          </div>
+        )}
+
         {editing ? (
           <>
             {/* Name */}
