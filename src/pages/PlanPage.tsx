@@ -12,6 +12,62 @@ const CATEGORY_DOT: Record<string, string> = {
   'בטן וליבה':     'bg-teal-500',
 }
 
+// Same tile look as the main workout screen
+const CATEGORY_TILE: Record<string, { from: string; to: string; icon: string }> = {
+  'פלג גוף תחתון': { from: 'from-blue-100',   to: 'to-blue-200',   icon: '🦵' },
+  'גב וכתפיים':    { from: 'from-violet-100', to: 'to-violet-200', icon: '🏋️' },
+  'חזה וזרועות':   { from: 'from-orange-100', to: 'to-orange-200', icon: '💪' },
+  'בטן וליבה':     { from: 'from-teal-100',   to: 'to-teal-200',   icon: '⚡' },
+}
+const TILE_FALLBACK = { from: 'from-gray-100', to: 'to-gray-200', icon: '🏃' }
+
+function PlanTile({ exercise, selected, selectable, onToggle }: {
+  exercise: ExerciseUser
+  selected: boolean
+  selectable?: boolean
+  onToggle?: () => void
+}) {
+  const cat = CATEGORY_TILE[exercise.category ?? ''] ?? TILE_FALLBACK
+
+  return (
+    <button
+      onClick={onToggle}
+      disabled={!selectable}
+      className={`
+        relative rounded-xl overflow-hidden flex flex-col w-full
+        bg-gradient-to-b ${cat.from} ${cat.to}
+        ${selected ? 'ring-[3px] ring-green-500' : 'ring-1 ring-black/10'}
+        ${selectable && !selected ? 'opacity-45' : ''}
+        ${selectable ? 'active:scale-95 transition-transform' : ''}
+      `}
+      style={{ aspectRatio: '1/1' }}
+    >
+      {exercise.image_url ? (
+        <img src={exercise.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      ) : (
+        <div className="flex-1 flex items-center justify-center">
+          <span className="text-3xl">{cat.icon}</span>
+        </div>
+      )}
+
+      {selectable && selected && (
+        <span className="absolute top-1 start-1 z-10 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-[11px] font-bold">
+          ✓
+        </span>
+      )}
+
+      <div className={`absolute bottom-0 left-0 right-0 px-1 py-1 ${exercise.image_url ? 'bg-black/55' : 'bg-white/60'}`}>
+        <p
+          className={`font-bold text-center leading-tight line-clamp-2 ${exercise.image_url ? 'text-white' : 'text-gray-800'}`}
+          style={{ fontSize: '11px' }}
+        >
+          {exercise.name_he}
+        </p>
+      </div>
+    </button>
+  )
+}
+
 interface Props {
   userId: string
   onClose: () => void
@@ -204,27 +260,42 @@ export default function PlanPage({ userId, onClose }: Props) {
             </div>
 
             {/* Picker */}
-            {group(exercises).map(g => (
-              <div key={g.cat} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${CATEGORY_DOT[g.cat] ?? 'bg-gray-400'}`} />
-                  <p className="text-gray-700 text-sm font-bold">{g.cat}</p>
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {g.items.map(ex => (
-                    <label key={ex.id} className="flex items-center gap-3 px-4 py-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={draftIds.has(ex.id)}
-                        onChange={() => toggleDraft(ex.id)}
-                        className="w-4 h-4 shrink-0"
+            {group(exercises).map(g => {
+              const chosen = g.items.filter(e => draftIds.has(e.id)).length
+              const allChosen = chosen === g.items.length
+              return (
+                <div key={g.cat} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${CATEGORY_DOT[g.cat] ?? 'bg-gray-400'}`} />
+                      <p className="text-gray-700 text-sm font-bold">{g.cat}</p>
+                      <span className="text-gray-400 text-xs">{chosen}/{g.items.length}</span>
+                    </div>
+                    <button
+                      onClick={() => setDraftIds(prev => {
+                        const next = new Set(prev)
+                        for (const e of g.items) allChosen ? next.delete(e.id) : next.add(e.id)
+                        return next
+                      })}
+                      className="text-blue-500 text-xs font-semibold"
+                    >
+                      {allChosen ? 'נקה' : 'בחר הכל'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 p-3">
+                    {g.items.map(ex => (
+                      <PlanTile
+                        key={ex.id}
+                        exercise={ex}
+                        selected={draftIds.has(ex.id)}
+                        selectable
+                        onToggle={() => toggleDraft(ex.id)}
                       />
-                      <span className="text-gray-800 text-sm flex-1 truncate">{ex.name_he}</span>
-                    </label>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             <button
               onClick={save}
@@ -257,12 +328,13 @@ export default function PlanPage({ userId, onClose }: Props) {
                     <div className="px-4 py-2 bg-gray-50 border-y border-gray-100 flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${CATEGORY_DOT[g.cat] ?? 'bg-gray-400'}`} />
                       <p className="text-gray-500 text-xs font-bold">{g.cat}</p>
+                      <span className="text-gray-400 text-xs">{g.items.length}</span>
                     </div>
-                    {g.items.map(ex => (
-                      <p key={ex.id} className="px-4 py-2.5 text-gray-800 text-sm border-b border-gray-50">
-                        {ex.name_he}
-                      </p>
-                    ))}
+                    <div className="grid grid-cols-3 gap-2 p-3">
+                      {g.items.map(ex => (
+                        <PlanTile key={ex.id} exercise={ex} selected={false} />
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -316,6 +388,7 @@ export default function PlanPage({ userId, onClose }: Props) {
       {helpOpen && (
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
           { title: 'מהי תוכנית אימונים?', body: 'רשימת התרגילים שאתה מתכנן לבצע בתקופה הנוכחית. רק תרגילים מהתוכנית מוצגים במסך הבית.' },
+          { title: 'בחירת תרגילים', body: 'התרגילים מוצגים בתמונות ומחולקים לפי קבוצות שריר. לחץ על תמונה כדי להוסיף או להסיר תרגיל — תרגיל שנבחר מסומן במסגרת ירוקה ובסימן ✓.' },
           { title: 'סטטיסטיקה', body: 'מוני "תרגילים" של היום ושל השבוע מחושבים מול התוכנית — לדוגמה 7 מתוך 14 ולא מתוך כל התרגילים.' },
           { title: 'שינוי תוכנית', body: 'ניתן לשנות תוכנית רק בימי ראשון. התוכנית הקודמת נסגרת בשבת והחדשה מתחילה באותו יום ראשון — כך אין חפיפה.' },
           { title: 'תיקון באותו יום', body: 'ביום שבו נוצרה התוכנית ניתן לערוך אותה חופשית ללא יצירת גרסה חדשה.' },
