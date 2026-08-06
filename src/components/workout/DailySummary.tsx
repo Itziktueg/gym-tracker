@@ -9,12 +9,18 @@ interface Props {
   onNext: () => void
   weekMode?: boolean
   weeklyLogs?: WorkoutLog[]
+  planExerciseIds?: Set<string> | null
 }
 
-export default function DailySummary({ exercises, logs, selectedDate, isToday, onPrev, onNext, weekMode, weeklyLogs }: Props) {
+export default function DailySummary({ exercises, logs, selectedDate, isToday, onPrev, onNext, weekMode, weeklyLogs, planExerciseIds }: Props) {
   const activeLogs = weekMode && weeklyLogs ? weeklyLogs : logs
 
-  const exercisesDone = new Set(activeLogs.map(l => l.exercise_id)).size
+  // With an active plan the counter reads against the plan (7/14), not the full library
+  const doneIds = new Set(activeLogs.map(l => l.exercise_id))
+  const exercisesDone = planExerciseIds
+    ? [...doneIds].filter(id => planExerciseIds.has(id)).length
+    : doneIds.size
+  const totalExercises = planExerciseIds ? planExerciseIds.size : exercises.length
 
   const exerciseMap = new Map(exercises.map(e => [e.id, e]))
 
@@ -63,7 +69,7 @@ export default function DailySummary({ exercises, logs, selectedDate, isToday, o
 
       {/* Stats */}
       <div className="flex justify-around">
-        <Stat label="תרגילים" value={`${exercisesDone}/${exercises.length}`} weekMode={weekMode} />
+        <Stat label="תרגילים" value={`${exercisesDone}/${totalExercises}`} weekMode={weekMode} />
         <Stat label="סטים" value={totalSets} weekMode={weekMode} />
         <Stat label="חזרות" value={totalReps} weekMode={weekMode} />
       </div>

@@ -16,6 +16,7 @@ import AdminDensityPage from './AdminDensityPage'
 import WeeklyDensityPage from './WeeklyDensityPage'
 import AdminWeeklyDensityPage from './AdminWeeklyDensityPage'
 import ExerciseFrequencyPage from './ExerciseFrequencyPage'
+import PlanPage from './PlanPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
 import UserGuidePage from './UserGuidePage'
 import HelpModal from '../components/HelpModal'
@@ -69,6 +70,9 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [weeklyIds, setWeeklyIds] = useState<Set<string>>(new Set())
   const [weeklyLogs, setWeeklyLogs] = useState<WorkoutLog[]>([])
   const [editExerciseId, setEditExerciseId] = useState<string | null>(null)
+  const [planOpen, setPlanOpen] = useState(false)
+  const [planExerciseIds, setPlanExerciseIds] = useState<Set<string> | null>(null)
+  const [planLoaded, setPlanLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const isToday = isSameDay(selectedDate, new Date())
@@ -133,6 +137,30 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     setViewLogs(data ?? [])
   }, [userId])
 
+  // ── Fetch the currently active plan ───────────────────────
+  const fetchActivePlan = useCallback(async () => {
+    const { data: plan } = await supabase
+      .from('workout_plans')
+      .select('id')
+      .eq('user_id', userId)
+      .is('end_date', null)
+      .maybeSingle()
+
+    if (!plan) {
+      setPlanExerciseIds(null)   // no plan → show the full library
+      setPlanLoaded(true)
+      return
+    }
+
+    const { data: rows } = await supabase
+      .from('workout_plan_exercises')
+      .select('exercise_id')
+      .eq('plan_id', plan.id)
+
+    setPlanExerciseIds(new Set((rows ?? []).map(r => r.exercise_id)))
+    setPlanLoaded(true)
+  }, [userId])
+
   // ── Android back-button handling ──────────────────────────
   const backHandlerRef = useRef(() => {})
   backHandlerRef.current = () => {
@@ -148,6 +176,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     if (adminWeeklyDensityOpen) { history.pushState(null, ''); setAdminWeeklyDensityOpen(false); setAdminHubOpen(true); return }
     if (adminDensityOpen)       { history.pushState(null, ''); setAdminDensityOpen(false); setAdminHubOpen(true); return }
     if (guideOpen)              { history.pushState(null, ''); setGuideOpen(false); return }
+    if (planOpen)               { history.pushState(null, ''); setPlanOpen(false); setManaging(true); fetchActivePlan(); return }
     if (managing)               { history.pushState(null, ''); setManaging(false); setEditExerciseId(null); fetchExercises(); return }
     if (selected)               { history.pushState(null, ''); setSelected(null); return }
     // Main screen — ask before leaving
@@ -186,6 +215,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   }
 
   useEffect(() => { fetchExercises() }, [fetchExercises])
+  useEffect(() => { fetchActivePlan() }, [fetchActivePlan])
   useEffect(() => { fetchLogsForDate(selectedDate) }, [fetchLogsForDate, selectedDate])
 
   // ── Date navigation ────────────────────────────────────────
@@ -227,7 +257,16 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
   const loggedIds = new Set(viewLogs.map(l => l.exercise_id))
 
-  if (loading) {
+  // Only plan exercises are shown — but anything already logged stays visible so
+  // past days remain viewable and editable after the plan changes.
+  const visibleExercises = planExerciseIds
+    ? exercises.filter(ex =>
+        planExerciseIds.has(ex.id) ||
+        loggedIds.has(ex.id) ||
+        (weekMode && weeklyIds.has(ex.id)))
+    : exercises
+
+  if (loading || !planLoaded) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <p className="text-gray-500">טוען אימון...</p>
@@ -303,11 +342,21 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     return <UserGuidePage isAdmin={isAdmin} onClose={() => setGuideOpen(false)} />
   }
 
+  if (planOpen) {
+    return (
+      <PlanPage
+        userId={userId}
+        onClose={() => { setPlanOpen(false); setManaging(true); fetchActivePlan() }}
+      />
+    )
+  }
+
   if (managing) {
     return (
       <ManageExercisesPage
         userId={userId}
         initialEditId={editExerciseId ?? undefined}
+        onOpenPlan={() => { setManaging(false); setPlanOpen(true) }}
         onClose={() => { setManaging(false); setEditExerciseId(null); fetchExercises() }}
       />
     )
@@ -387,10 +436,11 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         onNext={goForward}
         weekMode={weekMode}
         weeklyLogs={weeklyLogs}
+        planExerciseIds={planExerciseIds}
       />
 
       <div className="grid grid-cols-3 gap-2 p-3">
-        {exercises.map(ex => (
+        {visibleExercises.map(ex => (
           <ExerciseTile
             key={ex.id}
             exercise={ex}
@@ -421,7 +471,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           { title: 'הצגת אימוני השבוע', body: 'לחץ על 🗓 להדגשת כל התרגילים שבוצעו השבוע (ראשון–שבת) במסגרת אדומה. לחץ שוב לחזרה לתצוגה הרגילה.' },
           { title: 'טיימר מנוחה', body: 'לחץ על הטיימר בפס הכחול/אפור להפעלה. כוונן זמן עם + / −.' },
           { title: 'ניווט תאריכים', body: 'חץ שמאלה = יום קודם. חץ ימינה = יום הבא (עד היום).' },
-          { title: 'כפתורי ניווט', body: '⚙️ ניהול תרגילים · 📊 דוחות · 📖 מדריך · 🗓 הצגת השבוע' },
+          { title: 'תוכנית אימונים', body: 'מסך הבית מציג רק תרגילים מהתוכנית הפעילה, ומונה התרגילים מחושב מולה. לעריכה: ⚙️ ← 🎯 תוכנית אימונים.' },
+          { title: 'כפתורי ניווט', body: '⚙️ ניהול תרגילים ותוכנית · 📊 דוחות · 📖 מדריך · 🗓 הצגת השבוע' },
           ...( isAdmin ? [
             { title: 'ניהול מערכת (אדמין)', body: '🛡️ כניסה לניהול משתמשים, תרגילים גלובליים ודוחות לכל המשתמשים.' },
           ] : []),

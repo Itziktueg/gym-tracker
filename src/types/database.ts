@@ -60,6 +60,20 @@ export interface ExerciseUser {
   created_at: string
 }
 
+export interface WorkoutPlan {
+  id: string
+  user_id: string
+  name: string | null
+  start_date: string        // 'YYYY-MM-DD'
+  end_date: string | null   // null = active plan
+  created_at: string
+}
+
+export interface WorkoutPlanExercise {
+  plan_id: string
+  exercise_id: string
+}
+
 export interface WorkoutLog {
   id: string
   user_id: string

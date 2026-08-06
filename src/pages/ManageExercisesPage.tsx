@@ -33,6 +33,7 @@ type FormData = typeof EMPTY_FORM
 interface Props {
   userId: string
   onClose: () => void
+  onOpenPlan: () => void
   initialEditId?: string
 }
 
@@ -40,7 +41,7 @@ function sortByOrder(arr: ExerciseUser[]) {
   return [...arr].sort((a, b) => a.sort_order - b.sort_order || a.name_he.localeCompare(b.name_he, 'he'))
 }
 
-export default function ManageExercisesPage({ userId, onClose, initialEditId }: Props) {
+export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initialEditId }: Props) {
   const [exercises, setExercises]   = useState<ExerciseUser[]>([])
   const [globalLib, setGlobalLib]   = useState<ExerciseGlobal[]>([])
   const [loading, setLoading]       = useState(true)
@@ -591,6 +592,21 @@ export default function ManageExercisesPage({ userId, onClose, initialEditId }: 
             + חדש
           </button>
         </div>
+      </div>
+
+      {/* Plan entry */}
+      <div className="px-3 pt-3">
+        <button
+          onClick={onOpenPlan}
+          className="bg-white rounded-2xl px-4 py-4 shadow-sm flex items-center gap-4 text-right active:bg-gray-50 transition-colors w-full"
+        >
+          <span className="text-3xl shrink-0">🎯</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-gray-800 font-semibold text-sm">תוכנית אימונים</p>
+            <p className="text-gray-400 text-xs mt-0.5">בחירת התרגילים לתקופה הנוכחית</p>
+          </div>
+          <span className="text-gray-300 text-lg shrink-0">›</span>
+        </button>
       </div>
 
       <p className="text-gray-400 text-xs text-center mt-3 mb-1">
