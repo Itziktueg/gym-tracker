@@ -8,7 +8,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' rather than 'autoUpdate': a backgrounded PWA can serve a stale
+      // bundle for days without ever reloading. UpdatePrompt makes that visible
+      // and lets the user apply it.
+      registerType: 'prompt',
       includeAssets: ['icon-192-v2.png', 'icon-512-v2.png', 'apple-touch-icon-v2.png'],
       manifest: {
         name: 'מעקב אימונים',

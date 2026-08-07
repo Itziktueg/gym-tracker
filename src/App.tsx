@@ -5,6 +5,7 @@ import type { Profile } from './types/database'
 import AuthPage from './pages/AuthPage'
 import WorkoutPage from './pages/WorkoutPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import UpdatePrompt from './components/UpdatePrompt'
 
 export default function App() {
   const [session, setSession]         = useState<Session | null>(null)
@@ -42,25 +43,35 @@ export default function App() {
     setLoading(false)
   }
 
-  if (loading) {
+  function content() {
+    if (loading) {
+      return (
+        <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+          <p className="text-gray-500">טוען...</p>
+        </div>
+      )
+    }
+
+    if (resetPassword) {
+      return <ResetPasswordPage onDone={() => setResetPassword(false)} />
+    }
+
+    if (!session) return <AuthPage />
+
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-gray-500">טוען...</p>
-      </div>
+      <WorkoutPage
+        userId={session.user.id}
+        restTimerSeconds={profile?.rest_timer_seconds ?? 90}
+        isAdmin={profile?.role === 'admin'}
+      />
     )
   }
 
-  if (resetPassword) {
-    return <ResetPasswordPage onDone={() => setResetPassword(false)} />
-  }
-
-  if (!session) return <AuthPage />
-
+  // Rendered outside the auth branches so the banner shows on every screen
   return (
-    <WorkoutPage
-      userId={session.user.id}
-      restTimerSeconds={profile?.rest_timer_seconds ?? 90}
-      isAdmin={profile?.role === 'admin'}
-    />
+    <>
+      {content()}
+      <UpdatePrompt />
+    </>
   )
 }
