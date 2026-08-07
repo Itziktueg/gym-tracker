@@ -17,6 +17,7 @@ import WeeklyDensityPage from './WeeklyDensityPage'
 import AdminWeeklyDensityPage from './AdminWeeklyDensityPage'
 import ExerciseFrequencyPage from './ExerciseFrequencyPage'
 import PlanPage from './PlanPage'
+import PlanVsActualPage from './PlanVsActualPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
 import UserGuidePage from './UserGuidePage'
 import HelpModal from '../components/HelpModal'
@@ -64,6 +65,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [weeklyDensityOpen, setWeeklyDensityOpen] = useState(false)
   const [adminWeeklyDensityOpen, setAdminWeeklyDensityOpen] = useState(false)
   const [frequencyOpen, setFrequencyOpen] = useState(false)
+  const [planVsActualOpen, setPlanVsActualOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [weekMode, setWeekMode] = useState(false)
@@ -179,6 +181,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     if (progressOpen)           { history.pushState(null, ''); setProgressOpen(false); setReportsHubOpen(true); return }
     if (weeklyDensityOpen)      { history.pushState(null, ''); setWeeklyDensityOpen(false); setReportsHubOpen(true); return }
     if (frequencyOpen)          { history.pushState(null, ''); setFrequencyOpen(false); setReportsHubOpen(true); return }
+    if (planVsActualOpen)       { history.pushState(null, ''); setPlanVsActualOpen(false); setReportsHubOpen(true); return }
     if (densityOpen)            { history.pushState(null, ''); setDensityOpen(false); setReportsHubOpen(true); return }
     if (adminProgressOpen)      { history.pushState(null, ''); setAdminProgressOpen(false); setAdminHubOpen(true); return }
     if (adminWeeklyDensityOpen) { history.pushState(null, ''); setAdminWeeklyDensityOpen(false); setAdminHubOpen(true); return }
@@ -295,6 +298,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         onDensity={() => { setReportsHubOpen(false); setDensityOpen(true) }}
         onWeeklyDensity={() => { setReportsHubOpen(false); setWeeklyDensityOpen(true) }}
         onFrequency={() => { setReportsHubOpen(false); setFrequencyOpen(true) }}
+        onPlanVsActual={() => { setReportsHubOpen(false); setPlanVsActualOpen(true) }}
       />
     )
   }
@@ -325,6 +329,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
   if (frequencyOpen) {
     return <ExerciseFrequencyPage userId={userId} onClose={() => { setFrequencyOpen(false); setReportsHubOpen(true) }} />
+  }
+
+  if (planVsActualOpen) {
+    return <PlanVsActualPage userId={userId} onClose={() => { setPlanVsActualOpen(false); setReportsHubOpen(true) }} />
   }
 
   if (densityOpen) {

@@ -8,9 +8,10 @@ interface Props {
   onDensity: () => void
   onWeeklyDensity: () => void
   onFrequency: () => void
+  onPlanVsActual: () => void
 }
 
-export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, onWeeklyDensity, onFrequency }: Props) {
+export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, onWeeklyDensity, onFrequency, onPlanVsActual }: Props) {
   const [helpOpen, setHelpOpen] = useState(false)
 
   return (
@@ -52,6 +53,12 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, 
           description="כמה פעמים בוצע כל תרגיל בתקופה נבחרת"
           onClick={onFrequency}
         />
+        <HubCard
+          icon="🎯"
+          title="ביצוע לעומת תכנון"
+          description="מה תוכנן מול מה שבוצע, שבוע אחר שבוע"
+          onClick={onPlanVsActual}
+        />
       </div>
 
       {helpOpen && (
@@ -61,6 +68,7 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, 
           { title: 'עצימות יומית', body: 'עצימות לפי קבוצת שריר לכל יום אימון — לאיזון העומס בין האימונים.' },
           { title: 'עצימות שבועית', body: 'עצימות מצטברת לפי קבוצת שריר לכל שבוע — לזיהוי מגמות עומס לאורך זמן.' },
           { title: 'תדירות תרגילים', body: 'מספר הפעמים שכל תרגיל בוצע בתקופה נבחרת, מסודר מגבוה לנמוך.' },
+          { title: 'ביצוע לעומת תכנון', body: 'לכל שבוע — כמה תרגילים, סטים, חזרות ועצימות תוכננו מול מה שבוצע, ואחוז ביצוע כולל.' },
         ]} />
       )}
     </div>
