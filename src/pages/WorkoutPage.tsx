@@ -139,6 +139,33 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     setViewLogs(data ?? [])
   }, [userId])
 
+  // Creates תוכנית 0 holding the user's whole starting library. Returns its
+  // exercise ids, or null if there is nothing to put in it yet.
+  const createInitialPlan = useCallback(async (today: string) => {
+    const { data: exRows } = await supabase
+      .from('exercises_user')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+
+    if (!exRows || exRows.length === 0) return null
+
+    const { data: plan, error } = await supabase
+      .from('workout_plans')
+      .insert({ user_id: userId, seq: 0, name: 'תוכנית 0', start_date: today })
+      .select()
+      .single()
+
+    if (error || !plan) return null
+
+    const { error: linkErr } = await supabase
+      .from('workout_plan_exercises')
+      .insert(exRows.map(e => ({ plan_id: plan.id, exercise_id: e.id })))
+
+    if (linkErr) return null
+    return new Set(exRows.map(e => e.id))
+  }, [userId])
+
   // ── Fetch the currently active plan ───────────────────────
   const fetchActivePlan = useCallback(async () => {
     // Active means today falls inside the plan's range. Matching on
@@ -148,16 +175,23 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
     const { data: planRows } = await supabase
       .from('workout_plans')
-      .select('id')
+      .select('id, start_date, end_date')
       .eq('user_id', userId)
-      .lte('start_date', today)
-      .or(`end_date.is.null,end_date.gte.${today}`)
       .order('start_date', { ascending: false })
-      .limit(1)
 
-    const plan = planRows?.[0]
+    // First login: wrap the freshly seeded library in תוכנית 0, so every account
+    // is on the plan model from day one and their first deliberate plan gets
+    // seq 1 rather than being mislabelled תוכנית 0.
+    if (planRows && planRows.length === 0) {
+      const seeded = await createInitialPlan(today)
+      if (seeded) { setPlanExerciseIds(seeded); setPlanLoaded(true); return }
+    }
+
+    const plan = (planRows ?? []).find(p =>
+      p.start_date <= today && (p.end_date === null || p.end_date >= today))
+
     if (!plan) {
-      setPlanExerciseIds(null)   // no plan → show the full library
+      setPlanExerciseIds(null)   // no plan covering today → show the full library
       setPlanLoaded(true)
       return
     }
@@ -169,7 +203,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
     setPlanExerciseIds(new Set((rows ?? []).map(r => r.exercise_id)))
     setPlanLoaded(true)
-  }, [userId])
+  }, [userId, createInitialPlan])
 
   // ── Android back-button handling ──────────────────────────
   const backHandlerRef = useRef(() => {})
@@ -225,8 +259,16 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     setWeekMode(v => !v)
   }
 
-  useEffect(() => { fetchExercises() }, [fetchExercises])
-  useEffect(() => { fetchActivePlan() }, [fetchActivePlan])
+  // Sequential, not parallel: on a first login the plan bootstrap needs the
+  // seeded exercises to already exist, otherwise it finds none and skips.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      await fetchExercises()
+      if (!cancelled) await fetchActivePlan()
+    })()
+    return () => { cancelled = true }
+  }, [fetchExercises, fetchActivePlan])
   useEffect(() => { fetchLogsForDate(selectedDate) }, [fetchLogsForDate, selectedDate])
 
   // ── Date navigation ────────────────────────────────────────
