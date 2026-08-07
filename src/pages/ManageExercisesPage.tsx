@@ -64,6 +64,9 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const [helpOpen, setHelpOpen] = useState(false)
+  const [blockedDelete, setBlockedDelete] = useState<
+    { id: string; name: string; active: boolean; logs: number; plans: number } | null
+  >(null)
 
   // Scroll-to after edit/delete
   const [scrollToId, setScrollToId] = useState<string | null>(null)
@@ -128,6 +131,42 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
 
   // ── List: delete ───────────────────────────────────────────
   async function deleteExercise(id: string) {
+    // exercises_user cascades to workout_logs and workout_plan_exercises, so a
+    // delete here would silently destroy training history. Refuse when any exists.
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+    const { count: logCount } = await supabase.from('workout_logs')
+      .select('*', { count: 'exact', head: true }).eq('exercise_id', id)
+
+    // Only *closed* plans count as history. Being in the active or upcoming plan
+    // is a current intention, not a record — deleting just drops it from them.
+    // Otherwise nothing would ever be deletable once a plan exists.
+    const { data: closedPlans } = await supabase.from('workout_plans')
+      .select('id').eq('user_id', userId)
+      .not('end_date', 'is', null).lt('end_date', today)
+
+    let planCount = 0
+    if (closedPlans?.length) {
+      const { count } = await supabase.from('workout_plan_exercises')
+        .select('*', { count: 'exact', head: true })
+        .eq('exercise_id', id)
+        .in('plan_id', closedPlans.map(p => p.id))
+      planCount = count ?? 0
+    }
+
+    if ((logCount ?? 0) > 0 || (planCount ?? 0) > 0) {
+      const ex = exercises.find(e => e.id === id)
+      setBlockedDelete({
+        id,
+        name:   ex?.name_he ?? '',
+        active: ex?.is_active ?? false,
+        logs:   logCount ?? 0,
+        plans:  planCount ?? 0,
+      })
+      return
+    }
+
     if (!confirm('למחוק תרגיל זה מהרשימה האישית שלך?')) return
     const idx = exercises.findIndex(e => e.id === id)
     const nextId = exercises[idx + 1]?.id ?? exercises[idx - 1]?.id ?? null
@@ -633,13 +672,68 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
         </SortableContext>
       </DndContext>
 
+      {blockedDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setBlockedDelete(null)}
+          dir="rtl"
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-gray-800 font-bold text-base mb-2">לא ניתן למחוק</p>
+            <p className="text-gray-600 text-sm leading-relaxed mb-3">
+              לתרגיל "{blockedDelete.name}" קיימת היסטוריה:
+            </p>
+            <ul className="text-gray-600 text-sm mb-3 flex flex-col gap-1">
+              {blockedDelete.logs > 0 && (
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                  {blockedDelete.logs} רישומי אימון
+                </li>
+              )}
+              {blockedDelete.plans > 0 && (
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                  נכלל ב-{blockedDelete.plans} תוכניות קודמות
+                </li>
+              )}
+            </ul>
+            <p className="text-gray-500 text-xs leading-relaxed mb-4">
+              מחיקה תמחק לצמיתות גם את כל רישומי האימון שלו ותסיר אותו מתוכניות קודמות.
+              במקום זאת אפשר להסתיר אותו — הוא ייעלם ממסך הבית וכל ההיסטוריה תישמר.
+            </p>
+            <div className="flex gap-2">
+              {blockedDelete.active && (
+                <button
+                  onClick={() => {
+                    toggleActive(blockedDelete.id, true)
+                    setBlockedDelete(null)
+                  }}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl py-2.5 text-sm"
+                >
+                  👁 הסתר במקום
+                </button>
+              )}
+              <button
+                onClick={() => setBlockedDelete(null)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-xl py-2.5 text-sm"
+              >
+                סגור
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {helpOpen && (
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
           { title: 'הסתרה / הצגה', body: '👁 מסתיר תרגיל ממסך הבית מבלי למחוק אותו. לחץ שוב להחזרה.' },
           { title: 'שינוי סדר', body: 'לחץ לחיצה ממושכת על ☰ וגרור לסדר הרצוי.' },
           { title: 'תרגיל חדש', body: 'לחץ "+ חדש". ניתן לבחור מהספרייה הכללית או להוסיף תרגיל מאפס.' },
           { title: 'עריכה ותמונה', body: '✏️ לעריכת כל פרטי התרגיל. לחץ על תמונה/📷 להחלפה מהירה.' },
-          { title: 'מחיקה', body: '🗑 מוחק לצמיתות מהרשימה האישית שלך.' },
+          { title: 'מחיקה', body: '🗑 מוחק לצמיתות. תרגיל עם רישומי אימון או שנכלל בתוכנית לא ניתן למחיקה — יש להסתיר אותו ב-👁 כדי לשמור על ההיסטוריה.' },
         ]} />
       )}
     </div>
