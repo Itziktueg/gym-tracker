@@ -63,9 +63,10 @@ export interface ExerciseUser {
 export interface WorkoutPlan {
   id: string
   user_id: string
-  name: string | null
+  name: string | null       // legacy; display name is derived from seq
+  seq: number | null        // 0, 1, 2... assigned once, never renumbered
   start_date: string        // 'YYYY-MM-DD'
-  end_date: string | null   // null = active plan
+  end_date: string | null   // null = open-ended
   created_at: string
 }
 

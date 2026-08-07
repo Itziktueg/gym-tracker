@@ -139,13 +139,21 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
   // ── Fetch the currently active plan ───────────────────────
   const fetchActivePlan = useCallback(async () => {
-    const { data: plan } = await supabase
+    // Active means today falls inside the plan's range. Matching on
+    // "no end date" alone would pick up a plan that has not started yet.
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+    const { data: planRows } = await supabase
       .from('workout_plans')
       .select('id')
       .eq('user_id', userId)
-      .is('end_date', null)
-      .maybeSingle()
+      .lte('start_date', today)
+      .or(`end_date.is.null,end_date.gte.${today}`)
+      .order('start_date', { ascending: false })
+      .limit(1)
 
+    const plan = planRows?.[0]
     if (!plan) {
       setPlanExerciseIds(null)   // no plan → show the full library
       setPlanLoaded(true)
