@@ -311,7 +311,12 @@ export default function UserGuidePage({ isAdmin, onClose }: Props) {
           </>
         )}
 
-        {!isAdmin && <div className="h-10" />}
+        {/* Build stamp — lets us tell instantly which version is running */}
+        <p className="text-center text-gray-400 text-xs pb-8 pt-2" dir="ltr">
+          build {__BUILD_ID__} · {__BUILD_TIME__}
+        </p>
+
+        {!isAdmin && <div className="h-4" />}
       </div>
     </div>
   )

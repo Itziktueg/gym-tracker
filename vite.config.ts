@@ -1,9 +1,25 @@
+import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Stamped into the app so the running build is identifiable on screen, rather
+// than inferred from behaviour. Vercel sets VERCEL_GIT_COMMIT_SHA; git is the
+// local fallback.
+const BUILD_ID = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7)
+  ?? (() => {
+    try { return execSync('git rev-parse --short HEAD').toString().trim() }
+    catch { return 'dev' }
+  })()
+
+const BUILD_TIME = new Date().toISOString().slice(0, 16).replace('T', ' ')
+
 export default defineConfig({
+  define: {
+    __BUILD_ID__:   JSON.stringify(BUILD_ID),
+    __BUILD_TIME__: JSON.stringify(BUILD_TIME),
+  },
   plugins: [
     react(),
     tailwindcss(),
