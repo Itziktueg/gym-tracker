@@ -76,10 +76,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [planExerciseIds, setPlanExerciseIds] = useState<Set<string> | null>(null)
   const [planWorkouts, setPlanWorkouts] = useState<PlanWorkout[]>([])
   const [planAssign, setPlanAssign] = useState<Map<string, string | null>>(new Map())
-  // undefined = not chosen yet, fall back to the automatic pick.
-  // null = the user deliberately chose הכל.
-  const [selectedWorkout, setSelectedWorkout] = useState<string | null | undefined>(undefined)
-  const [weeklyLoaded, setWeeklyLoaded] = useState(false)
+  const [selectedWorkout, setSelectedWorkout] = useState<string | null>(null)  // null = הכל
   const [planLoaded, setPlanLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -273,7 +270,6 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     const logs = (data ?? []) as WorkoutLog[]
     setWeeklyLogs(logs)
     setWeeklyIds(new Set(logs.map(r => r.exercise_id)))
-    setWeeklyLoaded(true)
   }
 
   function toggleWeekMode() {
@@ -288,9 +284,6 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     ;(async () => {
       await fetchExercises()
       if (!cancelled) await fetchActivePlan()
-      // Loaded on every start, not just in week mode: the default workout tab
-      // is "the first one not yet started this week".
-      if (!cancelled) await fetchWeeklyData()
     })()
     return () => { cancelled = true }
   }, [fetchExercises, fetchActivePlan]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -348,29 +341,14 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const idsOfWorkout = (wid: string | null) =>
     new Set([...planAssign.entries()].filter(([, w]) => w === wid).map(([e]) => e))
 
-  // Computed during render rather than in an effect, so it never depends on the
-  // order the plan and this week's logs happen to arrive in.
-  const autoWorkout = (() => {
-    if (!hasWorkouts) return null
-    const started = (w: PlanWorkout) =>
-      [...planAssign.entries()].some(([ex, wo]) => wo === w.id && weeklyIds.has(ex))
-    const dow = new Date().getDay()
-    const next = planWorkouts.find(w => !started(w))          // next in the rotation
-      ?? planWorkouts.find(w => w.day_of_week === dow)        // else today's session
-      ?? planWorkouts[0]
-    return next?.id ?? null
-  })()
-
-  const currentWorkout = selectedWorkout === undefined ? autoWorkout : selectedWorkout
-
   // Grid contents follow the selected tab; הכל (null) shows everything
-  const tabExercises = hasWorkouts && currentWorkout !== null
-    ? visibleExercises.filter(ex => planAssign.get(ex.id) === currentWorkout)
+  const tabExercises = hasWorkouts && selectedWorkout !== null
+    ? visibleExercises.filter(ex => planAssign.get(ex.id) === selectedWorkout)
     : visibleExercises
 
   // The summary counter measures against whatever the tab is showing
-  const summaryIds = hasWorkouts && currentWorkout !== null
-    ? idsOfWorkout(currentWorkout)
+  const summaryIds = hasWorkouts && selectedWorkout !== null
+    ? idsOfWorkout(selectedWorkout)
     : planExerciseIds
 
   // For the הכל view: one section per workout, then anything unassigned
@@ -389,9 +367,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
       ].filter(s => s.items.length > 0)
     : []
 
-  // Waiting for the weekly logs too, so the default tab is right on first paint
-  // rather than switching under the user a moment later.
-  if (loading || !planLoaded || !weeklyLoaded) {
+  if (loading || !planLoaded) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <p className="text-gray-500">טוען אימון...</p>
@@ -570,21 +546,35 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
       />
 
       {hasWorkouts && (() => {
-        const sel = planWorkouts.find(w => w.id === currentWorkout) ?? null
+        const sel = planWorkouts.find(w => w.id === selectedWorkout) ?? null
         const doneIn = (ids: Set<string>) =>
           [...ids].filter(id => (weekMode ? weeklyIds : loggedIds).has(id)).length
         const allIds = planExerciseIds ?? new Set<string>()
+        const allOn = selectedWorkout === null
 
         return (
           <div className="px-3 pt-3 pb-0.5">
-            {/* Equal columns so every workout plus הכל fits without scrolling */}
+            {/* Equal columns so every workout plus הכל fits without scrolling.
+                הכל is first in the DOM, so in RTL it sits on the right. */}
             <div
               className="grid gap-1.5"
               style={{ gridTemplateColumns: `repeat(${planWorkouts.length + 1}, minmax(0,1fr))` }}
             >
+              <button
+                onClick={() => setSelectedWorkout(null)}
+                className={`rounded-xl py-1.5 px-1 transition-colors ${
+                  allOn ? 'bg-gray-700 text-white' : 'bg-white text-gray-600 shadow-sm'
+                }`}
+              >
+                <span className="block text-[11px] font-bold">הכל</span>
+                <span className={`block text-[10px] tabular-nums ${allOn ? 'text-white/80' : 'text-gray-400'}`}>
+                  {doneIn(allIds)}/{allIds.size}
+                </span>
+              </button>
+
               {planWorkouts.map(w => {
                 const ids = idsOfWorkout(w.id)
-                const on = currentWorkout === w.id
+                const on = selectedWorkout === w.id
                 return (
                   <button
                     key={w.id}
@@ -601,17 +591,6 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
                   </button>
                 )
               })}
-              <button
-                onClick={() => setSelectedWorkout(null)}
-                className={`rounded-xl py-1.5 px-1 transition-colors ${
-                  currentWorkout === null ? 'bg-gray-700 text-white' : 'bg-white text-gray-600 shadow-sm'
-                }`}
-              >
-                <span className="block text-[11px] font-bold">הכל</span>
-                <span className={`block text-[10px] tabular-nums ${currentWorkout === null ? 'text-white/80' : 'text-gray-400'}`}>
-                  {doneIn(allIds)}/{allIds.size}
-                </span>
-              </button>
             </div>
 
             {/* Full name only for the selected one — the tabs stay short */}
@@ -624,7 +603,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         )
       })()}
 
-      {hasWorkouts && currentWorkout === null ? (
+      {hasWorkouts && selectedWorkout === null ? (
         allSections.map(s => (
           <div key={s.key}>
             <p className="text-gray-500 text-xs font-bold px-4 pt-3 pb-1">
