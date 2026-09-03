@@ -481,34 +481,65 @@ export default function PlanPage({ userId, onClose }: Props) {
               </div>
             )}
 
-            {/* Exercise picker */}
-            {group(activeExercises).map(g => (
-              <div key={g.cat} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${CATEGORY_DOT[g.cat] ?? 'bg-gray-400'}`} />
-                  <p className="text-gray-700 text-sm font-bold">{g.cat}</p>
-                </div>
-                <div className="grid grid-cols-3 gap-2 p-3">
-                  {g.items.map(ex => {
-                    const assigned = draftAssign.has(ex.id) ? draftAssign.get(ex.id) ?? null : undefined
-                    const here = assigned === (activeTab === UNASSIGNED ? null : activeTab)
-                    const other = assigned !== undefined && !here
-                      ? draftWorkouts.find(w => w.id === assigned)?.name ?? 'בתוכנית'
-                      : undefined
-                    return (
-                      <PlanTile
-                        key={ex.id}
-                        exercise={ex}
-                        selected={here}
-                        selectable
-                        badge={other}
-                        onToggle={() => toggleInTab(ex.id)}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
+            {/* The selected workout's own contents come first, so the split is
+                visible as a group rather than scattered across category cards */}
+            {(() => {
+              const target = activeTab === UNASSIGNED ? null : activeTab
+              const isIn = (ex: ExerciseUser) =>
+                draftAssign.has(ex.id) && (draftAssign.get(ex.id) ?? null) === target
+              const inWorkout = activeExercises.filter(isIn)
+              const rest = activeExercises.filter(ex => !isIn(ex))
+              const title = editingWorkout ? editingWorkout.name : 'ללא שיוך'
+
+              return (
+                <>
+                  <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-4 py-2.5 bg-green-50 border-b border-green-100 flex items-center justify-between gap-2">
+                      <p className="text-green-800 text-sm font-bold truncate">{title}</p>
+                      <span className="text-green-600 text-xs font-semibold shrink-0">
+                        {inWorkout.length} תרגילים
+                      </span>
+                    </div>
+                    {inWorkout.length === 0 ? (
+                      <p className="text-gray-400 text-xs text-center px-4 py-6">
+                        אין עדיין תרגילים באימון זה — בחר מהרשימה למטה.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2 p-3">
+                        {inWorkout.map(ex => (
+                          <PlanTile key={ex.id} exercise={ex} selected selectable
+                            onToggle={() => toggleInTab(ex.id)} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-gray-500 text-xs font-bold px-1 pt-1">הוספת תרגילים</p>
+
+                  {group(rest).map(g => (
+                    <div key={g.cat} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${CATEGORY_DOT[g.cat] ?? 'bg-gray-400'}`} />
+                        <p className="text-gray-700 text-sm font-bold">{g.cat}</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 p-3">
+                        {g.items.map(ex => {
+                          const assigned = draftAssign.has(ex.id)
+                            ? draftAssign.get(ex.id) ?? null : undefined
+                          const other = assigned !== undefined
+                            ? draftWorkouts.find(w => w.id === assigned)?.name ?? 'ללא שיוך'
+                            : undefined
+                          return (
+                            <PlanTile key={ex.id} exercise={ex} selected={false} selectable
+                              badge={other} onToggle={() => toggleInTab(ex.id)} />
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )
+            })()}
 
             <button
               onClick={save}
