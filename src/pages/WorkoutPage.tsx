@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import type { ExerciseUser, WorkoutLog } from '../types/database'
+import type { ExerciseUser, WorkoutLog, PlanWorkout } from '../types/database'
 import DailySummary from '../components/workout/DailySummary'
 import ExerciseTile from '../components/workout/ExerciseTile'
 import RestTimer from '../components/workout/RestTimer'
@@ -74,6 +74,11 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [editExerciseId, setEditExerciseId] = useState<string | null>(null)
   const [planOpen, setPlanOpen] = useState(false)
   const [planExerciseIds, setPlanExerciseIds] = useState<Set<string> | null>(null)
+  const [planWorkouts, setPlanWorkouts] = useState<PlanWorkout[]>([])
+  const [planAssign, setPlanAssign] = useState<Map<string, string | null>>(new Map())
+  const [selectedWorkout, setSelectedWorkout] = useState<string | null>(null)  // null = הכל
+  const [tabPicked, setTabPicked] = useState(false)
+  const [weeklyLoaded, setWeeklyLoaded] = useState(false)
   const [planLoaded, setPlanLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -184,7 +189,13 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     // seq 1 rather than being mislabelled תוכנית 0.
     if (planRows && planRows.length === 0) {
       const seeded = await createInitialPlan(today)
-      if (seeded) { setPlanExerciseIds(seeded); setPlanLoaded(true); return }
+      if (seeded) {
+        setPlanExerciseIds(seeded)
+        setPlanAssign(new Map([...seeded].map(id => [id, null])))
+        setPlanWorkouts([])
+        setPlanLoaded(true)
+        return
+      }
     }
 
     const plan = (planRows ?? []).find(p =>
@@ -192,16 +203,25 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
     if (!plan) {
       setPlanExerciseIds(null)   // no plan covering today → show the full library
+      setPlanAssign(new Map())
+      setPlanWorkouts([])
       setPlanLoaded(true)
       return
     }
 
-    const { data: rows } = await supabase
-      .from('workout_plan_exercises')
-      .select('exercise_id')
-      .eq('plan_id', plan.id)
+    const [{ data: rows }, { data: wos }] = await Promise.all([
+      supabase.from('workout_plan_exercises')
+        .select('exercise_id, workout_id').eq('plan_id', plan.id),
+      supabase.from('plan_workouts')
+        .select('*').eq('plan_id', plan.id).order('seq'),
+    ])
 
-    setPlanExerciseIds(new Set((rows ?? []).map(r => r.exercise_id)))
+    const assign = new Map<string, string | null>()
+    for (const r of rows ?? []) assign.set(r.exercise_id, r.workout_id ?? null)
+
+    setPlanAssign(assign)
+    setPlanExerciseIds(new Set(assign.keys()))
+    setPlanWorkouts((wos ?? []) as PlanWorkout[])
     setPlanLoaded(true)
   }, [userId, createInitialPlan])
 
@@ -252,7 +272,25 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     const logs = (data ?? []) as WorkoutLog[]
     setWeeklyLogs(logs)
     setWeeklyIds(new Set(logs.map(r => r.exercise_id)))
+    setWeeklyLoaded(true)
   }
+
+  // Default tab = the first workout not yet started this week, i.e. what is next
+  // in the rotation. Falls back to one scheduled for today, then to the first.
+  useEffect(() => {
+    if (tabPicked || !planLoaded || !weeklyLoaded || planWorkouts.length === 0) return
+
+    const started = (w: PlanWorkout) =>
+      [...planAssign.entries()].some(([ex, wo]) => wo === w.id && weeklyIds.has(ex))
+
+    const todayDow = new Date().getDay()
+    const next = planWorkouts.find(w => !started(w))
+      ?? planWorkouts.find(w => w.day_of_week === todayDow)
+      ?? planWorkouts[0]
+
+    setSelectedWorkout(next?.id ?? null)
+    setTabPicked(true)
+  }, [tabPicked, planLoaded, weeklyLoaded, planWorkouts, planAssign, weeklyIds])
 
   function toggleWeekMode() {
     if (!weekMode) fetchWeeklyData()
@@ -266,9 +304,12 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     ;(async () => {
       await fetchExercises()
       if (!cancelled) await fetchActivePlan()
+      // Loaded on every start, not just in week mode: the default workout tab
+      // is "the first one not yet started this week".
+      if (!cancelled) await fetchWeeklyData()
     })()
     return () => { cancelled = true }
-  }, [fetchExercises, fetchActivePlan])
+  }, [fetchExercises, fetchActivePlan]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { fetchLogsForDate(selectedDate) }, [fetchLogsForDate, selectedDate])
 
   // ── Date navigation ────────────────────────────────────────
@@ -318,6 +359,36 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         loggedIds.has(ex.id) ||
         (weekMode && weeklyIds.has(ex.id)))
     : exercises
+
+  const hasWorkouts = planWorkouts.length > 0
+  const idsOfWorkout = (wid: string | null) =>
+    new Set([...planAssign.entries()].filter(([, w]) => w === wid).map(([e]) => e))
+
+  // Grid contents follow the selected tab; הכל (null) shows everything
+  const tabExercises = hasWorkouts && selectedWorkout !== null
+    ? visibleExercises.filter(ex => planAssign.get(ex.id) === selectedWorkout)
+    : visibleExercises
+
+  // The summary counter measures against whatever the tab is showing
+  const summaryIds = hasWorkouts && selectedWorkout !== null
+    ? idsOfWorkout(selectedWorkout)
+    : planExerciseIds
+
+  // For the הכל view: one section per workout, then anything unassigned
+  const allSections = hasWorkouts
+    ? [
+        ...planWorkouts.map(w => ({
+          key: w.id,
+          title: w.name,
+          items: visibleExercises.filter(ex => planAssign.get(ex.id) === w.id),
+        })),
+        {
+          key: 'none',
+          title: 'ללא שיוך',
+          items: visibleExercises.filter(ex => (planAssign.get(ex.id) ?? null) === null),
+        },
+      ].filter(s => s.items.length > 0)
+    : []
 
   if (loading || !planLoaded) {
     return (
@@ -494,21 +565,73 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         onNext={goForward}
         weekMode={weekMode}
         weeklyLogs={weeklyLogs}
-        planExerciseIds={planExerciseIds}
+        planExerciseIds={summaryIds}
       />
 
-      <div className="grid grid-cols-3 gap-2 p-3">
-        {visibleExercises.map(ex => (
-          <ExerciseTile
-            key={ex.id}
-            exercise={ex}
-            completedToday={loggedIds.has(ex.id)}
-            completedThisWeek={weeklyIds.has(ex.id)}
-            weekMode={weekMode}
-            onPress={() => setSelected(ex)}
-          />
-        ))}
-      </div>
+      {hasWorkouts && (
+        <div className="flex gap-2 overflow-x-auto px-3 pt-3 pb-0.5">
+          {planWorkouts.map(w => {
+            const ids = idsOfWorkout(w.id)
+            const done = [...ids].filter(id => (weekMode ? weeklyIds : loggedIds).has(id)).length
+            return (
+              <button
+                key={w.id}
+                onClick={() => setSelectedWorkout(w.id)}
+                className={`shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                  selectedWorkout === w.id
+                    ? (weekMode ? 'bg-red-500 text-white' : 'bg-green-600 text-white')
+                    : 'bg-white text-gray-600 shadow-sm'
+                }`}
+              >
+                {w.name} · {done}/{ids.size}
+              </button>
+            )
+          })}
+          <button
+            onClick={() => setSelectedWorkout(null)}
+            className={`shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+              selectedWorkout === null ? 'bg-gray-700 text-white' : 'bg-white text-gray-600 shadow-sm'
+            }`}
+          >
+            הכל
+          </button>
+        </div>
+      )}
+
+      {hasWorkouts && selectedWorkout === null ? (
+        allSections.map(s => (
+          <div key={s.key}>
+            <p className="text-gray-500 text-xs font-bold px-4 pt-3 pb-1">
+              {s.title} · {s.items.length}
+            </p>
+            <div className="grid grid-cols-3 gap-2 px-3">
+              {s.items.map(ex => (
+                <ExerciseTile
+                  key={ex.id}
+                  exercise={ex}
+                  completedToday={loggedIds.has(ex.id)}
+                  completedThisWeek={weeklyIds.has(ex.id)}
+                  weekMode={weekMode}
+                  onPress={() => setSelected(ex)}
+                />
+              ))}
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="grid grid-cols-3 gap-2 p-3">
+          {tabExercises.map(ex => (
+            <ExerciseTile
+              key={ex.id}
+              exercise={ex}
+              completedToday={loggedIds.has(ex.id)}
+              completedThisWeek={weeklyIds.has(ex.id)}
+              weekMode={weekMode}
+              onPress={() => setSelected(ex)}
+            />
+          ))}
+        </div>
+      )}
 
       {selected && (
         <LogModal
@@ -520,6 +643,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           onSaved={handleSaved}
           onUndo={handleUndo}
           onEditExercise={() => { setEditExerciseId(selected.id); setSelected(null); setManaging(true) }}
+          workoutId={planAssign.get(selected.id) ?? null}
         />
       )}
 
@@ -530,6 +654,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           { title: 'טיימר מנוחה', body: 'לחץ על הטיימר בפס הכחול/אפור להפעלה. כוונן זמן עם + / −.' },
           { title: 'ניווט תאריכים', body: 'חץ שמאלה = יום קודם. חץ ימינה = יום הבא (עד היום).' },
           { title: 'תוכנית אימונים', body: 'מסך הבית מציג רק תרגילים מהתוכנית הפעילה, ומונה התרגילים מחושב מולה. לעריכה: ⚙️ ← 🎯 תוכנית אימונים.' },
+          { title: 'טאבים של אימונים', body: 'אם התוכנית מחולקת לאימונים, שורת הטאבים מעל התרגילים מציגה כל אימון עם מונה ביצוע. הטאב שנפתח הוא האימון הבא בתור. "הכל" מציג את כל התוכנית לפי אימונים.' },
           { title: 'כפתורי ניווט', body: '⚙️ ניהול תרגילים ותוכנית · 📊 דוחות · 📖 מדריך · 🗓 הצגת השבוע' },
           ...( isAdmin ? [
             { title: 'ניהול מערכת (אדמין)', body: '🛡️ כניסה לניהול משתמשים, תרגילים גלובליים ודוחות לכל המשתמשים.' },

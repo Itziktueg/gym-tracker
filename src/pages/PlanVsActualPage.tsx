@@ -12,8 +12,8 @@ interface WeekRow {
   sunday:    string        // YYYY-MM-DD
   weekNo:    number
   hasPlan:   boolean
-  planned:   { ex: number; sets: number; reps: number; intensity: number }
-  actual:    { ex: number; sets: number; reps: number; intensity: number }
+  planned:   { workouts: number; ex: number; sets: number; reps: number; intensity: number }
+  actual:    { workouts: number; ex: number; sets: number; reps: number; intensity: number }
   overall:   number | null // average of the available metric percentages
 }
 
@@ -85,14 +85,23 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
     const plans = (planData ?? []) as WorkoutPlan[]
     const exMap = new Map((exData ?? []).map(e => [e.id, e as ExerciseUser]))
 
-    // Plan -> its exercise ids
+    // Plan -> exercise ids, plan -> (exercise -> workout), plan -> workout ids
     const links: Record<string, string[]> = {}
+    const assignOf: Record<string, Map<string, string | null>> = {}
+    const workoutsOf: Record<string, string[]> = {}
+
     if (plans.length > 0) {
-      const { data: linkRows } = await supabase
-        .from('workout_plan_exercises')
-        .select('plan_id, exercise_id')
-        .in('plan_id', plans.map(p => p.id))
-      for (const r of linkRows ?? []) (links[r.plan_id] ??= []).push(r.exercise_id)
+      const ids = plans.map(p => p.id)
+      const [{ data: linkRows }, { data: woRows }] = await Promise.all([
+        supabase.from('workout_plan_exercises')
+          .select('plan_id, exercise_id, workout_id').in('plan_id', ids),
+        supabase.from('plan_workouts').select('id, plan_id').in('plan_id', ids),
+      ])
+      for (const r of linkRows ?? []) {
+        (links[r.plan_id] ??= []).push(r.exercise_id)
+        ;(assignOf[r.plan_id] ??= new Map()).set(r.exercise_id, r.workout_id ?? null)
+      }
+      for (const w of woRows ?? []) (workoutsOf[w.plan_id] ??= []).push(w.id)
     }
 
     // Page through logs — a silent 1000-row cut would skew every number here
@@ -137,7 +146,10 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
       const planExIds = plan ? links[plan.id] ?? [] : []
       const planSet   = new Set(planExIds)
 
-      const planned = { ex: planExIds.length, sets: 0, reps: 0, intensity: 0 }
+      const planWorkoutIds = plan ? workoutsOf[plan.id] ?? [] : []
+      const assign = plan ? assignOf[plan.id] ?? new Map<string, string | null>() : new Map<string, string | null>()
+
+      const planned = { workouts: planWorkoutIds.length, ex: planExIds.length, sets: 0, reps: 0, intensity: 0 }
       for (const id of planExIds) {
         const e = exMap.get(id)
         if (!e) continue
@@ -149,7 +161,7 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
 
       // Only plan exercises count, so both sides measure the same thing
       const weekLogs = (logsByWeek[s] ?? []).filter(l => planSet.has(l.exercise_id))
-      const actual = { ex: 0, sets: 0, reps: 0, intensity: 0 }
+      const actual = { workouts: 0, ex: 0, sets: 0, reps: 0, intensity: 0 }
       const seen = new Set<string>()
       for (const l of weekLogs) {
         seen.add(l.exercise_id)
@@ -160,6 +172,17 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
       }
       actual.ex = seen.size
 
+      // A workout counts as done when at least half its exercises were logged
+      // that week — one exercise out of eight is not "leg day done".
+      for (const wid of planWorkoutIds) {
+        const total = [...assign.entries()].filter(([, w]) => w === wid).length
+        if (total === 0) continue
+        const did = [...assign.entries()].filter(([e, w]) => w === wid && seen.has(e)).length
+        if (did / total >= 0.5) actual.workouts++
+      }
+
+      // Deliberately excludes workouts: ביצוע stays the average of the four
+      // metrics originally specified, so historical numbers remain comparable.
       const parts = [
         pct(actual.ex,        planned.ex),
         pct(actual.sets,      planned.sets),
@@ -211,7 +234,7 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
                 >
                   שבוע
                 </th>
-                {['תרגילים', 'סטים', 'חזרות', 'עצימות'].map(h => (
+                {['אימונים', 'תרגילים', 'סטים', 'חזרות', 'עצימות'].map(h => (
                   <th
                     key={h}
                     className="bg-gray-50 border-b border-l border-gray-200 px-1 py-2 text-gray-500 text-xs font-bold"
@@ -232,6 +255,7 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
             <tbody>
               {rows.map(r => {
                 const cells: [number, number][] = [
+                  [r.actual.workouts,  r.planned.workouts],
                   [r.actual.ex,        r.planned.ex],
                   [r.actual.sets,      r.planned.sets],
                   [r.actual.reps,      r.planned.reps],
@@ -296,7 +320,8 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
           { title: 'מהו "מתוכנן"', body: 'התוכנית קובעת אילו תרגילים לבצע, ולכל תרגיל יש ברירות מחדל של סטים, חזרות ומשקל. המתוכנן לשבוע = ביצוע כל תרגיל בתוכנית פעם אחת לפי ברירות המחדל שלו.' },
           { title: 'איזו תוכנית נספרת', body: 'התוכנית שהייתה בתוקף ביום ראשון של אותו שבוע קובעת עבור כל השבוע.' },
           { title: 'מה נספר בפועל', body: 'רק תרגילים שנמצאים באותה תוכנית, כדי ששני הצדדים ימדדו את אותו דבר.' },
-          { title: 'אחוז הביצוע', body: 'ממוצע של ארבעת האחוזים — תרגילים, סטים, חזרות ועצימות. מעל 100% אפשרי כאשר בוצע יותר מהמתוכנן.' },
+          { title: 'עמודת אימונים', body: 'כמה אימונים מהתוכנית הושלמו באותו שבוע. אימון נחשב כבוצע כאשר לפחות מחצית מהתרגילים שבו נרשמו. בתוכנית ללא חלוקה לאימונים העמודה ריקה.' },
+          { title: 'אחוז הביצוע', body: 'ממוצע של ארבעת האחוזים — תרגילים, סטים, חזרות ועצימות. עמודת האימונים אינה נכללת בחישוב. מעל 100% אפשרי כאשר בוצע יותר מהמתוכנן.' },
           { title: 'צבעים', body: 'ירוק 90% ומעלה · כחול 70% ומעלה · כתום 50% ומעלה · אדום מתחת ל-50%.' },
           { title: 'שבוע ללא תוכנית', body: 'שבוע שלא הייתה בו תוכנית פעילה מוצג עם — בכל העמודות.' },
         ]} />

@@ -11,6 +11,7 @@ interface Props {
   onSaved: (exerciseId: string, newLogs: WorkoutLog[]) => void
   onUndo: (exerciseId: string) => void
   onEditExercise: () => void
+  workoutId: string | null
 }
 
 interface SetLine {
@@ -18,7 +19,7 @@ interface SetLine {
   weight: number
 }
 
-export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise }: Props) {
+export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise, workoutId }: Props) {
   const numSets = Math.max(exercise.default_sets, 1)
 
   const [lines, setLines] = useState<SetLine[]>(
@@ -57,6 +58,9 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
       weight:         line.weight,
       intensity:      line.reps * line.weight * ((exercise.is_bilateral || exercise.double_weight) ? 2 : 1),
       logged_at:      loggedAt.toISOString(),
+      // Recorded from the exercise's own assignment, so it is right regardless
+      // of which tab the user happened to be on
+      workout_id:     workoutId,
     }))
     const { data } = await supabase.from('workout_logs').insert(records).select()
     onSaved(exercise.id, (data ?? []) as WorkoutLog[])
