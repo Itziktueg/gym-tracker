@@ -70,9 +70,20 @@ export interface WorkoutPlan {
   created_at: string
 }
 
+/** A named session inside a plan (e.g. אימון 1 - רגליים). */
+export interface PlanWorkout {
+  id: string
+  plan_id: string
+  name: string
+  day_of_week: number | null   // 0=Sunday. null = no fixed day, order decides
+  seq: number
+  created_at: string
+}
+
 export interface WorkoutPlanExercise {
   plan_id: string
   exercise_id: string
+  workout_id: string | null    // null = in the plan but not assigned to a workout
 }
 
 export interface WorkoutLog {
@@ -85,6 +96,7 @@ export interface WorkoutLog {
   intensity: number
   notes: string | null
   logged_at: string
+  workout_id: string | null    // which session this was logged under, if any
 }
 
 // Joined types used in the UI
