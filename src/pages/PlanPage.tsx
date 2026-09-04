@@ -107,10 +107,10 @@ function PlanTile({ exercise, selected, selectable, badge, optional, onToggleOpt
           onClick={onToggleOptional
             ? e => { e.stopPropagation(); onToggleOptional() }
             : undefined}
-          className={`absolute top-1 end-1 z-20 text-xs font-bold rounded-md px-2 py-1 leading-none shadow ${
+          className={`absolute top-1 end-1 z-20 text-[9px] font-bold rounded px-1 py-0.5 leading-none ${
             optional
               ? 'bg-amber-500 text-white'
-              : 'bg-black/35 text-white/80 border border-white/50'
+              : 'bg-black/25 text-white/70 border border-white/40'
           }`}
         >
           Opt

@@ -41,7 +41,7 @@ export default function ExerciseTile({ exercise, completedToday, completedThisWe
       style={{ aspectRatio: '1/1' }}
     >
       {optional && (
-        <span className="absolute top-1 end-1 z-10 bg-amber-500 text-white text-xs font-bold rounded-md px-2 py-1 leading-none shadow">
+        <span className="absolute top-1 end-1 z-10 bg-amber-500 text-white text-[9px] font-bold rounded px-1 py-0.5 leading-none">
           Opt
         </span>
       )}
