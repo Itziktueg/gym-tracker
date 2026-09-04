@@ -5,13 +5,6 @@ import type { ExerciseUser, WorkoutPlan, PlanWorkout } from '../types/database'
 
 const CATEGORY_ORDER = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
 
-const CATEGORY_DOT: Record<string, string> = {
-  'פלג גוף תחתון': 'bg-blue-500',
-  'גב וכתפיים':    'bg-violet-500',
-  'חזה וזרועות':   'bg-orange-500',
-  'בטן וליבה':     'bg-teal-500',
-}
-
 const CATEGORY_TILE: Record<string, { from: string; to: string; icon: string }> = {
   'פלג גוף תחתון': { from: 'from-blue-100',   to: 'to-blue-200',   icon: '🦵' },
   'גב וכתפיים':    { from: 'from-violet-100', to: 'to-violet-200', icon: '🏋️' },
@@ -514,29 +507,48 @@ export default function PlanPage({ userId, onClose }: Props) {
                     )}
                   </div>
 
-                  <p className="text-gray-500 text-xs font-bold px-1 pt-1">הוספת תרגילים</p>
+                  {/* The rest is grouped by workout as well, not by muscle
+                      category — the heading names the workout it sits in. */}
+                  {(() => {
+                    const inPlan  = (ex: ExerciseUser) => draftAssign.has(ex.id)
+                    const restSections = [
+                      ...[...draftWorkouts]
+                        .filter(w => w.id !== activeTab)
+                        .sort((a, b) => a.seq - b.seq)
+                        .map(w => ({
+                          key: w.id,
+                          title: w.day_of_week !== null
+                            ? `${w.name} · יום ${DAY_NAMES[w.day_of_week]}`
+                            : w.name,
+                          items: rest.filter(ex => draftAssign.get(ex.id) === w.id),
+                        })),
+                      {
+                        key: 'unassigned',
+                        title: 'ללא שיוך לאימון',
+                        items: rest.filter(ex => inPlan(ex) && (draftAssign.get(ex.id) ?? null) === null),
+                      },
+                      {
+                        key: 'notinplan',
+                        title: 'לא בתוכנית',
+                        items: rest.filter(ex => !inPlan(ex)),
+                      },
+                    ].filter(s => s.items.length > 0)
 
-                  {group(rest).map(g => (
-                    <div key={g.cat} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                      <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${CATEGORY_DOT[g.cat] ?? 'bg-gray-400'}`} />
-                        <p className="text-gray-700 text-sm font-bold">{g.cat}</p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 p-3">
-                        {g.items.map(ex => {
-                          const assigned = draftAssign.has(ex.id)
-                            ? draftAssign.get(ex.id) ?? null : undefined
-                          const other = assigned !== undefined
-                            ? draftWorkouts.find(w => w.id === assigned)?.name ?? 'ללא שיוך'
-                            : undefined
-                          return (
+                    return restSections.map(s => (
+                      <div key={s.key} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                        <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-2">
+                          <p className="text-gray-700 text-sm font-bold truncate">{s.title}</p>
+                          <span className="text-gray-400 text-xs shrink-0">{s.items.length}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 p-3">
+                          {s.items.map(ex => (
                             <PlanTile key={ex.id} exercise={ex} selected={false} selectable
-                              badge={other} onToggle={() => toggleInTab(ex.id)} />
-                          )
-                        })}
+                              onToggle={() => toggleInTab(ex.id)} />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  })()}
                 </>
               )
             })()}
