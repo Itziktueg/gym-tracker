@@ -76,6 +76,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [planExerciseIds, setPlanExerciseIds] = useState<Set<string> | null>(null)
   const [planWorkouts, setPlanWorkouts] = useState<PlanWorkout[]>([])
   const [planAssign, setPlanAssign] = useState<Map<string, string | null>>(new Map())
+  const [planOptional, setPlanOptional] = useState<Set<string>>(new Set())
   const [selectedWorkout, setSelectedWorkout] = useState<string | null>(null)  // null = הכל
   const [planLoaded, setPlanLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -209,14 +210,19 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
     const [{ data: rows }, { data: wos }] = await Promise.all([
       supabase.from('workout_plan_exercises')
-        .select('exercise_id, workout_id').eq('plan_id', plan.id),
+        .select('exercise_id, workout_id, is_optional').eq('plan_id', plan.id),
       supabase.from('plan_workouts')
         .select('*').eq('plan_id', plan.id).order('seq'),
     ])
 
     const assign = new Map<string, string | null>()
-    for (const r of rows ?? []) assign.set(r.exercise_id, r.workout_id ?? null)
+    const opt = new Set<string>()
+    for (const r of rows ?? []) {
+      assign.set(r.exercise_id, r.workout_id ?? null)
+      if (r.is_optional) opt.add(r.exercise_id)
+    }
 
+    setPlanOptional(opt)
     setPlanAssign(assign)
     setPlanExerciseIds(new Set(assign.keys()))
     setPlanWorkouts((wos ?? []) as PlanWorkout[])
@@ -617,6 +623,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
                   completedToday={loggedIds.has(ex.id)}
                   completedThisWeek={weeklyIds.has(ex.id)}
                   weekMode={weekMode}
+                  optional={planOptional.has(ex.id)}
                   onPress={() => setSelected(ex)}
                 />
               ))}
@@ -632,6 +639,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
               completedToday={loggedIds.has(ex.id)}
               completedThisWeek={weeklyIds.has(ex.id)}
               weekMode={weekMode}
+              optional={planOptional.has(ex.id)}
               onPress={() => setSelected(ex)}
             />
           ))}
@@ -659,6 +667,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           { title: 'טיימר מנוחה', body: 'לחץ על הטיימר בפס הכחול/אפור להפעלה. כוונן זמן עם + / −.' },
           { title: 'ניווט תאריכים', body: 'חץ שמאלה = יום קודם. חץ ימינה = יום הבא (עד היום).' },
           { title: 'תוכנית אימונים', body: 'מסך הבית מציג רק תרגילים מהתוכנית הפעילה, ומונה התרגילים מחושב מולה. לעריכה: ⚙️ ← 🎯 תוכנית אימונים.' },
+          { title: 'תרגיל רשות', body: 'תגית "Opt" כתומה בפינה השמאלית-עליונה של התמונה מסמנת תרגיל רשות — כדאי אך לא חובה. הסימון נעשה בעריכת התוכנית.' },
           { title: 'טאבים של אימונים', body: 'אם התוכנית מחולקת לאימונים, שורת הטאבים מעל התרגילים מציגה כל אימון עם מונה ביצוע. הטאב שנפתח הוא האימון הבא בתור. "הכל" מציג את כל התוכנית לפי אימונים.' },
           { title: 'כפתורי ניווט', body: '⚙️ ניהול תרגילים ותוכנית · 📊 דוחות · 📖 מדריך · 🗓 הצגת השבוע' },
           { title: 'גרסה', body: `build ${__BUILD_ID__} · ${__BUILD_TIME__}` },

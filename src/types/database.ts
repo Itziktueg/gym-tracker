@@ -84,6 +84,7 @@ export interface WorkoutPlanExercise {
   plan_id: string
   exercise_id: string
   workout_id: string | null    // null = in the plan but not assigned to a workout
+  is_optional: boolean         // true = nice to do, not required for the session
 }
 
 export interface WorkoutLog {

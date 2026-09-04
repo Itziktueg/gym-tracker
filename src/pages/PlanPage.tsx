@@ -61,11 +61,14 @@ function weeksBetween(startISO: string, endISO: string) {
   return Math.max(1, Math.round(days / 7))
 }
 
-function PlanTile({ exercise, selected, selectable, badge, onToggle }: {
+function PlanTile({ exercise, selected, selectable, badge, optional, onToggleOptional, onToggle }: {
   exercise: ExerciseUser
   selected: boolean
   selectable?: boolean
   badge?: string
+  optional?: boolean
+  /** When given, the Opt chip becomes a toggle instead of a read-only marker */
+  onToggleOptional?: () => void
   onToggle?: () => void
 }) {
   const cat = CATEGORY_TILE[exercise.category ?? ''] ?? TILE_FALLBACK
@@ -97,6 +100,23 @@ function PlanTile({ exercise, selected, selectable, badge, onToggle }: {
         </span>
       )}
 
+      {/* Opt marker, top-left. Tappable where a handler is supplied — the
+          span stops the tap from reaching the tile's add/remove behaviour. */}
+      {(optional || onToggleOptional) && (
+        <span
+          onClick={onToggleOptional
+            ? e => { e.stopPropagation(); onToggleOptional() }
+            : undefined}
+          className={`absolute top-1 end-1 z-20 text-[9px] font-bold rounded px-1 py-0.5 leading-none ${
+            optional
+              ? 'bg-amber-500 text-white'
+              : 'bg-black/25 text-white/70 border border-white/40'
+          }`}
+        >
+          Opt
+        </span>
+      )}
+
       {badge && !selected && (
         <span className="absolute top-1 start-1 z-10 bg-gray-800/85 text-white text-[9px] rounded px-1 py-0.5 max-w-[85%] truncate">
           {badge}
@@ -121,11 +141,13 @@ export default function PlanPage({ userId, onClose }: Props) {
   const [workouts,  setWorkouts]  = useState<Record<string, PlanWorkout[]>>({})
   // planId -> (exerciseId -> workoutId | null)
   const [links,     setLinks]     = useState<Record<string, Map<string, string | null>>>({})
+  const [optional,  setOptional]  = useState<Record<string, Set<string>>>({})
   const [loading,   setLoading]   = useState(true)
 
   const [editing,       setEditing]       = useState(false)
   const [draftWorkouts, setDraftWorkouts] = useState<DraftWorkout[]>([])
   const [draftAssign,   setDraftAssign]   = useState<Map<string, string | null>>(new Map())
+  const [draftOptional, setDraftOptional] = useState<Set<string>>(new Set())
   const [activeTab,     setActiveTab]     = useState<string>(UNASSIGNED)
   const [viewingId,     setViewingId]     = useState<string | null>(null)
   const [saving,        setSaving]        = useState(false)
@@ -167,27 +189,31 @@ export default function PlanPage({ userId, onClose }: Props) {
       const ids = allPlans.map(p => p.id)
       const [{ data: linkRows }, { data: woRows }] = await Promise.all([
         supabase.from('workout_plan_exercises')
-          .select('plan_id, exercise_id, workout_id').in('plan_id', ids),
+          .select('plan_id, exercise_id, workout_id, is_optional').in('plan_id', ids),
         supabase.from('plan_workouts')
           .select('*').in('plan_id', ids).order('seq'),
       ])
 
       const lm: Record<string, Map<string, string | null>> = {}
+      const om: Record<string, Set<string>> = {}
       for (const r of linkRows ?? []) {
         (lm[r.plan_id] ??= new Map()).set(r.exercise_id, r.workout_id ?? null)
+        if (r.is_optional) (om[r.plan_id] ??= new Set()).add(r.exercise_id)
       }
       setLinks(lm)
+      setOptional(om)
 
       const wm: Record<string, PlanWorkout[]> = {}
       for (const w of (woRows ?? []) as PlanWorkout[]) (wm[w.plan_id] ??= []).push(w)
       setWorkouts(wm)
     } else {
-      setLinks({}); setWorkouts({})
+      setLinks({}); setWorkouts({}); setOptional({})
     }
     setLoading(false)
   }
 
   function startEdit() {
+    setDraftOptional(new Set(editTarget ? optional[editTarget.id] ?? new Set<string>() : []))
     if (!editTarget) {
       setDraftWorkouts([]); setDraftAssign(new Map()); setActiveTab(UNASSIGNED)
     } else {
@@ -210,6 +236,15 @@ export default function PlanPage({ userId, onClose }: Props) {
 
       if (current === target) next.delete(exId)   // already here → drop from plan
       else next.set(exId, target)                 // not in plan, or in another workout → put here
+      return next
+    })
+  }
+
+  function toggleOptional(exId: string) {
+    setDraftOptional(prev => {
+      const next = new Set(prev)
+      if (next.has(exId)) next.delete(exId)
+      else next.add(exId)
       return next
     })
   }
@@ -270,6 +305,7 @@ export default function PlanPage({ userId, onClose }: Props) {
         plan_id: planId,
         exercise_id,
         workout_id: wo ? idMap.get(wo) ?? wo : null,
+        is_optional: draftOptional.has(exercise_id),
       }))
       const { error: i } = await supabase.from('workout_plan_exercises').insert(rows)
       return fail('שמירת תרגילים', i)
@@ -501,6 +537,8 @@ export default function PlanPage({ userId, onClose }: Props) {
                       <div className="grid grid-cols-3 gap-2 p-3">
                         {inWorkout.map(ex => (
                           <PlanTile key={ex.id} exercise={ex} selected selectable
+                            optional={draftOptional.has(ex.id)}
+                            onToggleOptional={() => toggleOptional(ex.id)}
                             onToggle={() => toggleInTab(ex.id)} />
                         ))}
                       </div>
@@ -543,6 +581,7 @@ export default function PlanPage({ userId, onClose }: Props) {
                         <div className="grid grid-cols-3 gap-2 p-3">
                           {s.items.map(ex => (
                             <PlanTile key={ex.id} exercise={ex} selected={false} selectable
+                              optional={draftOptional.has(ex.id)}
                               onToggle={() => toggleInTab(ex.id)} />
                           ))}
                         </div>
@@ -567,6 +606,7 @@ export default function PlanPage({ userId, onClose }: Props) {
             plan={viewingPlan}
             workouts={workouts[viewingPlan.id] ?? []}
             assign={links[viewingPlan.id] ?? new Map()}
+            optional={optional[viewingPlan.id] ?? new Set()}
             exercises={exercises}
             group={group}
           />
@@ -663,10 +703,11 @@ export default function PlanPage({ userId, onClose }: Props) {
   )
 }
 
-function PlanDetail({ plan, workouts, assign, exercises, group }: {
+function PlanDetail({ plan, workouts, assign, optional, exercises, group }: {
   plan: WorkoutPlan
   workouts: PlanWorkout[]
   assign: Map<string, string | null>
+  optional: Set<string>
   exercises: ExerciseUser[]
   group: (l: ExerciseUser[]) => { cat: string; items: ExerciseUser[] }[]
 }) {
@@ -708,6 +749,7 @@ function PlanDetail({ plan, workouts, assign, exercises, group }: {
           <div className="grid grid-cols-3 gap-2 p-3">
             {group(s.items).flatMap(g => g.items).map(ex => (
               <PlanTile key={ex.id} exercise={ex} selected={false}
+                optional={optional.has(ex.id)}
                 badge={!ex.is_active ? 'לא בשימוש' : undefined} />
             ))}
           </div>

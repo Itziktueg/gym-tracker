@@ -14,10 +14,11 @@ interface Props {
   completedToday: boolean
   completedThisWeek?: boolean
   weekMode?: boolean
+  optional?: boolean
   onPress: () => void
 }
 
-export default function ExerciseTile({ exercise, completedToday, completedThisWeek, weekMode, onPress }: Props) {
+export default function ExerciseTile({ exercise, completedToday, completedThisWeek, weekMode, optional, onPress }: Props) {
   const cat = CATEGORY[exercise.category ?? ''] ?? FALLBACK
 
   const ringClass = weekMode
@@ -39,6 +40,12 @@ export default function ExerciseTile({ exercise, completedToday, completedThisWe
       `}
       style={{ aspectRatio: '1/1' }}
     >
+      {optional && (
+        <span className="absolute top-1 end-1 z-10 bg-amber-500 text-white text-[9px] font-bold rounded px-1 py-0.5 leading-none">
+          Opt
+        </span>
+      )}
+
       {dotColor && (
         <span className={`absolute top-1 start-1 w-2 h-2 ${dotColor} rounded-full`} />
       )}
