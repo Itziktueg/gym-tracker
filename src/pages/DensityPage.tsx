@@ -71,7 +71,9 @@ export default function DensityPage({ userId, onClose }: Props) {
         pivotMap[cat][date] = (pivotMap[cat][date] ?? 0) + (log.intensity ?? 0)
       }
 
-      const sortedDates = [...dateSet].sort()
+      // Newest first: in RTL the first column renders on the right, so the most
+      // recent day is the one you see without scrolling.
+      const sortedDates = [...dateSet].sort().reverse()
 
       const totalsMap: Record<string, number> = {}
       for (const d of sortedDates) {
@@ -211,7 +213,7 @@ export default function DensityPage({ userId, onClose }: Props) {
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
           { title: 'קריאת הטבלה', body: 'עמודות = ימי אימון (מהאחרון). שורות = קבוצות שרירים + שורת סה"כ.' },
           { title: 'שימוש', body: 'זיהוי ימים חזקים וחלשים לפי קבוצת שריר. עוזר לאזן עומס בין אימונים.' },
-          { title: 'גלילה', body: 'גלול ימינה לתאריכים ישנים יותר.' },
+          { title: 'גלילה', body: 'התאריך האחרון מוצג בצד ימין. גלול שמאלה לתאריכים ישנים יותר.' },
         ]} />
       )}
     </div>

@@ -113,7 +113,8 @@ export default function AdminDensityPage({ onClose }: Props) {
         pivotMap[cat][date] = (pivotMap[cat][date] ?? 0) + (log.intensity ?? 0)
       }
 
-      const sortedDates = [...dateSet].sort()
+      // Newest first — most recent day visible without scrolling (RTL)
+      const sortedDates = [...dateSet].sort().reverse()
       const totalsMap: Record<string, number> = {}
       for (const d of sortedDates) {
         totalsMap[d] = CATEGORY_ORDER.reduce((s, cat) => s + (pivotMap[cat]?.[d] ?? 0), 0)

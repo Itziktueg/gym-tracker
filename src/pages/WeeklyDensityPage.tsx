@@ -81,7 +81,8 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
         pivotMap[cat][week] = (pivotMap[cat][week] ?? 0) + (log.intensity ?? 0)
       }
 
-      const sortedWeeks = [...weekSet].sort()
+      // Newest first — most recent week visible without scrolling (RTL)
+      const sortedWeeks = [...weekSet].sort().reverse()
       const totalsMap: Record<string, number> = {}
       for (const w of sortedWeeks)
         totalsMap[w] = CATEGORY_ORDER.reduce((s, cat) => s + (pivotMap[cat]?.[w] ?? 0), 0)
@@ -214,7 +215,7 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
           { title: 'קריאת הטבלה', body: 'עמודות = שבועות. התאריך = יום ראשון של השבוע. "שבוע N" = מספר השבוע בשנה.' },
           { title: 'שימוש', body: 'זיהוי שבועות חזקים וחלשים לפי קבוצת שריר. עוזר לאזן עומס אימון לאורך זמן.' },
           { title: 'צבעים', body: 'ירוק ≥ 9,000 · כחול ≥ 4,500 · אפור < 4,500 (לפי קטגוריה). סה"כ: ירוק ≥ 30,000 · כחול ≥ 15,000.' },
-          { title: 'גלילה', body: 'גלול ימינה לשבועות ישנים יותר.' },
+          { title: 'גלילה', body: 'השבוע האחרון מוצג בצד ימין. גלול שמאלה לשבועות ישנים יותר.' },
         ]} />
       )}
     </div>

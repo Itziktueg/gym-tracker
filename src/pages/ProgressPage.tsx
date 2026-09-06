@@ -80,7 +80,8 @@ export default function ProgressPage({ userId, onClose }: Props) {
           return a.name_he.localeCompare(b.name_he, 'he')
         })
 
-      const sortedDates = [...dateSet].sort()
+      // Newest first — most recent day visible without scrolling (RTL)
+      const sortedDates = [...dateSet].sort().reverse()
 
       setExercises(exerciseRows)
       setDates(sortedDates)
@@ -240,7 +241,7 @@ export default function ProgressPage({ userId, onClose }: Props) {
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
           { title: 'קריאת הטבלה', body: 'שורות = תרגילים, עמודות = תאריכי אימון (מהאחרון לישן). הערך = עצימות.' },
           { title: 'עצימות', body: 'ירוק ≥ 3000 · כחול ≥ 1500 · אפור < 1500 · קו = לא בוצע באותו יום.' },
-          { title: 'גלילה', body: 'גלול ימינה לתאריכים ישנים יותר. עמודת שם התרגיל קבועה תמיד.' },
+          { title: 'גלילה', body: 'התאריך האחרון מוצג בצד ימין. גלול שמאלה לתאריכים ישנים יותר. עמודת שם התרגיל קבועה תמיד.' },
         ]} />
       )}
     </div>

@@ -118,7 +118,8 @@ export default function AdminWeeklyDensityPage({ onClose }: Props) {
         pivotMap[cat][week] = (pivotMap[cat][week] ?? 0) + (log.intensity ?? 0)
       }
 
-      const sortedWeeks = [...weekSet].sort()
+      // Newest first — most recent week visible without scrolling (RTL)
+      const sortedWeeks = [...weekSet].sort().reverse()
       const totalsMap: Record<string, number> = {}
       for (const w of sortedWeeks)
         totalsMap[w] = CATEGORY_ORDER.reduce((s, cat) => s + (pivotMap[cat]?.[w] ?? 0), 0)

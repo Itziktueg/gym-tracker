@@ -127,7 +127,8 @@ export default function AdminProgressPage({ onClose }: Props) {
         userId,
         nickname: user.nickname ?? user.email,
         exercises: exerciseRows,
-        dates: [...dateSet].sort(),
+        // Newest first — most recent day visible without scrolling (RTL)
+        dates: [...dateSet].sort().reverse(),
         pivot: pivotMap,
       })
     }
