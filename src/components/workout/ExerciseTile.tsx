@@ -15,10 +15,15 @@ interface Props {
   completedThisWeek?: boolean
   weekMode?: boolean
   optional?: boolean
+  lang?: 'he' | 'en'
   onPress: () => void
 }
 
-export default function ExerciseTile({ exercise, completedToday, completedThisWeek, weekMode, optional, onPress }: Props) {
+export default function ExerciseTile({ exercise, completedToday, completedThisWeek, weekMode, optional, lang = 'he', onPress }: Props) {
+  // Fall back to Hebrew per-exercise: name_en is nullable and some users have gaps
+  const english = lang === 'en' ? exercise.name_en?.trim() : ''
+  const label = english || exercise.name_he
+  const isEn = !!english
   const cat = CATEGORY[exercise.category ?? ''] ?? FALLBACK
 
   const ringClass = weekMode
@@ -65,10 +70,11 @@ export default function ExerciseTile({ exercise, completedToday, completedThisWe
       {/* Label pinned to bottom */}
       <div className={`absolute bottom-0 left-0 right-0 px-1 py-1.5 ${exercise.image_url ? 'bg-black/55' : 'bg-white/60'}`}>
         <p
+          dir={isEn ? 'ltr' : 'rtl'}
           className={`font-bold text-center leading-tight line-clamp-2 ${exercise.image_url ? 'text-white' : 'text-gray-800'}`}
           style={{ fontSize: '12px' }}
         >
-          {exercise.name_he}
+          {label}
         </p>
       </div>
     </button>

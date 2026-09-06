@@ -69,6 +69,11 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [frequencyOpen, setFrequencyOpen] = useState(false)
   const [planVsActualOpen, setPlanVsActualOpen] = useState(false)
   const [muscleVolumeOpen, setMuscleVolumeOpen] = useState(false)
+  // Remembered per device. localStorage can throw in private mode, so guarded.
+  const [lang, setLang] = useState<'he' | 'en'>(() => {
+    try { return localStorage.getItem('exerciseLang') === 'en' ? 'en' : 'he' }
+    catch { return 'he' }
+  })
   const [notesOpen, setNotesOpen] = useState(false)
   const [adminNotesOpen, setAdminNotesOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -284,6 +289,11 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     const logs = (data ?? []) as WorkoutLog[]
     setWeeklyLogs(logs)
     setWeeklyIds(new Set(logs.map(r => r.exercise_id)))
+  }
+
+  function pickLang(next: 'he' | 'en') {
+    setLang(next)
+    try { localStorage.setItem('exerciseLang', next) } catch { /* private mode */ }
   }
 
   function toggleWeekMode() {
@@ -524,6 +534,21 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             >
               📖
             </button>
+            {/* Exercise-name language. Text rather than flag emoji: Windows
+                renders 🇮🇱/🇺🇸 as bare letters, and this is used on a laptop too. */}
+            <span className="flex items-center rounded-lg overflow-hidden border border-gray-200 text-[11px] font-bold shrink-0">
+              <button
+                onClick={() => pickLang('he')}
+                className={`px-1.5 py-1 ${lang === 'he' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+                title="שמות התרגילים בעברית"
+              >עב</button>
+              <button
+                onClick={() => pickLang('en')}
+                className={`px-1.5 py-1 ${lang === 'en' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+                title="Exercise names in English"
+              >EN</button>
+            </span>
+
             <button
               onClick={toggleWeekMode}
               className={`text-xl transition-opacity ${weekMode ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
@@ -647,6 +672,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
                   completedThisWeek={weeklyIds.has(ex.id)}
                   weekMode={weekMode}
                   optional={planOptional.has(ex.id)}
+                  lang={lang}
                   onPress={() => setSelected(ex)}
                 />
               ))}
@@ -663,6 +689,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
               completedThisWeek={weeklyIds.has(ex.id)}
               weekMode={weekMode}
               optional={planOptional.has(ex.id)}
+              lang={lang}
               onPress={() => setSelected(ex)}
             />
           ))}
@@ -680,6 +707,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           onUndo={handleUndo}
           onEditExercise={() => { setEditExerciseId(selected.id); setSelected(null); setManaging(true) }}
           workoutId={planAssign.get(selected.id) ?? null}
+          lang={lang}
         />
       )}
 
@@ -690,6 +718,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           { title: 'טיימר מנוחה', body: 'לחץ על הטיימר בפס הכחול/אפור להפעלה. כוונן זמן עם + / −.' },
           { title: 'ניווט תאריכים', body: 'חץ שמאלה = יום קודם. חץ ימינה = יום הבא (עד היום).' },
           { title: 'תוכנית אימונים', body: 'מסך הבית מציג רק תרגילים מהתוכנית הפעילה, ומונה התרגילים מחושב מולה. לעריכה: ⚙️ ← 🎯 תוכנית אימונים.' },
+          { title: 'שפת שמות התרגילים', body: 'מתג "עב / EN" בסרגל העליון מחליף בין עברית לאנגלית בשמות התרגילים. הבחירה נשמרת במכשיר.' },
           { title: 'הערה על התרגיל', body: 'במסך רישום התרגיל, מתחת לסטים, אפשר לכתוב איך היה התרגיל. ההערה נשמרת ומופיעה בדוח "הערות אימון".' },
           { title: 'תרגיל רשות', body: 'תגית "Opt" כתומה בפינה השמאלית-עליונה של התמונה מסמנת תרגיל רשות — כדאי אך לא חובה. הסימון נעשה בעריכת התוכנית.' },
           { title: 'טאבים של אימונים', body: 'אם התוכנית מחולקת לאימונים, שורת הטאבים מעל התרגילים מציגה כל אימון עם מונה ביצוע. הטאב שנפתח הוא האימון הבא בתור. "הכל" מציג את כל התוכנית לפי אימונים.' },

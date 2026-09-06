@@ -12,6 +12,7 @@ interface Props {
   onUndo: (exerciseId: string) => void
   onEditExercise: () => void
   workoutId: string | null
+  lang?: 'he' | 'en'
 }
 
 interface SetLine {
@@ -19,7 +20,8 @@ interface SetLine {
   weight: number
 }
 
-export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise, workoutId }: Props) {
+export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise, workoutId, lang = 'he' }: Props) {
+  const englishName = lang === 'en' ? exercise.name_en?.trim() : ''
   const numSets = Math.max(exercise.default_sets, 1)
 
   const [lines, setLines] = useState<SetLine[]>(
@@ -111,8 +113,9 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           >
             ×
           </button>
-          <h2 className="text-gray-800 text-lg font-bold text-center flex-1">
-            {exercise.name_he}
+          <h2 dir={englishName ? 'ltr' : 'rtl'}
+            className="text-gray-800 text-lg font-bold text-center flex-1">
+            {englishName || exercise.name_he}
           </h2>
           <button
             onClick={onEditExercise}
