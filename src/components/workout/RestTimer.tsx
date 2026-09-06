@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 
 const STORAGE_KEY     = 'rest-timer-seconds'
 const STORAGE_END_KEY = 'rest-timer-end-at'
@@ -107,7 +108,12 @@ async function cancelScheduledNotification() {
   }
 }
 
-export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }) {
+/** rightSlot renders at the start of the bar — the right side in RTL — while the
+ *  timer controls sit at the opposite end. */
+export default function RestTimer({ defaultSeconds, rightSlot }: {
+  defaultSeconds: number
+  rightSlot?: ReactNode
+}) {
   const [duration, setDuration] = useState<number>(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     return saved ? parseInt(saved, 10) : defaultSeconds
@@ -193,22 +199,27 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
 
   if (running) {
     return (
-      <div className="flex items-center justify-center gap-3 bg-orange-500 px-4 py-2">
-        <span className="text-white font-bold text-lg tabular-nums">
-          {fmt(secondsLeft ?? 0)}
-        </span>
-        <button
-          onClick={stop}
-          className="text-white/80 hover:text-white text-xs font-medium bg-white/20 rounded-lg px-3 py-1"
-        >
-          ■ עצור
-        </button>
+      <div className="flex items-center justify-between gap-3 bg-orange-500 px-3 py-2">
+        {rightSlot ?? <span />}
+        <div className="flex items-center gap-3">
+          <span className="text-white font-bold text-lg tabular-nums">
+            {fmt(secondsLeft ?? 0)}
+          </span>
+          <button
+            onClick={stop}
+            className="text-white/80 hover:text-white text-xs font-medium bg-white/20 rounded-lg px-3 py-1"
+          >
+            ■ עצור
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center justify-center gap-2 bg-gray-50 border-b border-gray-200 px-4 py-2">
+    <div className="flex items-center justify-between gap-2 bg-gray-50 border-b border-gray-200 px-3 py-2">
+      {rightSlot ?? <span />}
+      <div className="flex items-center gap-2">
       <button
         onClick={() => adjust(-STEP)}
         disabled={duration <= MIN_SECS}
@@ -232,6 +243,7 @@ export default function RestTimer({ defaultSeconds }: { defaultSeconds: number }
       >
         +
       </button>
+      </div>
     </div>
   )
 }

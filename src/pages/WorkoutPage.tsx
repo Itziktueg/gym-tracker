@@ -534,21 +534,6 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             >
               📖
             </button>
-            {/* Exercise-name language. Text rather than flag emoji: Windows
-                renders 🇮🇱/🇺🇸 as bare letters, and this is used on a laptop too. */}
-            <span className="flex items-center rounded-lg overflow-hidden border border-gray-200 text-[11px] font-bold shrink-0">
-              <button
-                onClick={() => pickLang('he')}
-                className={`px-1.5 py-1 ${lang === 'he' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
-                title="שמות התרגילים בעברית"
-              >עב</button>
-              <button
-                onClick={() => pickLang('en')}
-                className={`px-1.5 py-1 ${lang === 'en' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
-                title="Exercise names in English"
-              >EN</button>
-            </span>
-
             <button
               onClick={toggleWeekMode}
               className={`text-xl transition-opacity ${weekMode ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
@@ -584,7 +569,25 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             </button>
           </div>
         </div>
-        <RestTimer defaultSeconds={restTimerSeconds} />
+        <RestTimer
+          defaultSeconds={restTimerSeconds}
+          rightSlot={
+            /* Text rather than flag emoji: Windows renders 🇮🇱/🇺🇸 as bare
+               letters, and this is used on a laptop too. */
+            <span className="flex items-center rounded-lg overflow-hidden border border-gray-300 text-[11px] font-bold shrink-0">
+              <button
+                onClick={() => pickLang('he')}
+                className={`px-2 py-1 ${lang === 'he' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+                title="שמות התרגילים בעברית"
+              >עב</button>
+              <button
+                onClick={() => pickLang('en')}
+                className={`px-2 py-1 ${lang === 'en' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+                title="Exercise names in English"
+              >EN</button>
+            </span>
+          }
+        />
       </div>
 
       <DailySummary
@@ -718,7 +721,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           { title: 'טיימר מנוחה', body: 'לחץ על הטיימר בפס הכחול/אפור להפעלה. כוונן זמן עם + / −.' },
           { title: 'ניווט תאריכים', body: 'חץ שמאלה = יום קודם. חץ ימינה = יום הבא (עד היום).' },
           { title: 'תוכנית אימונים', body: 'מסך הבית מציג רק תרגילים מהתוכנית הפעילה, ומונה התרגילים מחושב מולה. לעריכה: ⚙️ ← 🎯 תוכנית אימונים.' },
-          { title: 'שפת שמות התרגילים', body: 'מתג "עב / EN" בסרגל העליון מחליף בין עברית לאנגלית בשמות התרגילים. הבחירה נשמרת במכשיר.' },
+          { title: 'שפת שמות התרגילים', body: 'מתג "עב / EN" בצד ימין של שורת הטיימר מחליף בין עברית לאנגלית בשמות התרגילים. הבחירה נשמרת במכשיר.' },
           { title: 'הערה על התרגיל', body: 'במסך רישום התרגיל, מתחת לסטים, אפשר לכתוב איך היה התרגיל. ההערה נשמרת ומופיעה בדוח "הערות אימון".' },
           { title: 'תרגיל רשות', body: 'תגית "Opt" כתומה בפינה השמאלית-עליונה של התמונה מסמנת תרגיל רשות — כדאי אך לא חובה. הסימון נעשה בעריכת התוכנית.' },
           { title: 'טאבים של אימונים', body: 'אם התוכנית מחולקת לאימונים, שורת הטאבים מעל התרגילים מציגה כל אימון עם מונה ביצוע. הטאב שנפתח הוא האימון הבא בתור. "הכל" מציג את כל התוכנית לפי אימונים.' },
