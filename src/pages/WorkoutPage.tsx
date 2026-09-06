@@ -19,6 +19,7 @@ import ExerciseFrequencyPage from './ExerciseFrequencyPage'
 import PlanPage, { DAY_NAMES } from './PlanPage'
 import PlanVsActualPage from './PlanVsActualPage'
 import MuscleVolumePage from './MuscleVolumePage'
+import WorkoutNotesPage from './WorkoutNotesPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
 import UserGuidePage from './UserGuidePage'
 import HelpModal from '../components/HelpModal'
@@ -68,6 +69,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [frequencyOpen, setFrequencyOpen] = useState(false)
   const [planVsActualOpen, setPlanVsActualOpen] = useState(false)
   const [muscleVolumeOpen, setMuscleVolumeOpen] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
+  const [adminNotesOpen, setAdminNotesOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [weekMode, setWeekMode] = useState(false)
@@ -243,6 +246,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     if (frequencyOpen)          { history.pushState(null, ''); setFrequencyOpen(false); setReportsHubOpen(true); return }
     if (planVsActualOpen)       { history.pushState(null, ''); setPlanVsActualOpen(false); setReportsHubOpen(true); return }
     if (muscleVolumeOpen)       { history.pushState(null, ''); setMuscleVolumeOpen(false); setReportsHubOpen(true); return }
+    if (notesOpen)              { history.pushState(null, ''); setNotesOpen(false); setReportsHubOpen(true); return }
+    if (adminNotesOpen)         { history.pushState(null, ''); setAdminNotesOpen(false); setAdminHubOpen(true); return }
     if (densityOpen)            { history.pushState(null, ''); setDensityOpen(false); setReportsHubOpen(true); return }
     if (adminProgressOpen)      { history.pushState(null, ''); setAdminProgressOpen(false); setAdminHubOpen(true); return }
     if (adminWeeklyDensityOpen) { history.pushState(null, ''); setAdminWeeklyDensityOpen(false); setAdminHubOpen(true); return }
@@ -399,6 +404,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         onFrequency={() => { setReportsHubOpen(false); setFrequencyOpen(true) }}
         onPlanVsActual={() => { setReportsHubOpen(false); setPlanVsActualOpen(true) }}
         onMuscleVolume={() => { setReportsHubOpen(false); setMuscleVolumeOpen(true) }}
+        onNotes={() => { setReportsHubOpen(false); setNotesOpen(true) }}
       />
     )
   }
@@ -411,6 +417,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         onAdminProgress={() => { setAdminHubOpen(false); setAdminProgressOpen(true) }}
         onAdminDensity={() => { setAdminHubOpen(false); setAdminDensityOpen(true) }}
         onAdminWeeklyDensity={() => { setAdminHubOpen(false); setAdminWeeklyDensityOpen(true) }}
+        onAdminNotes={() => { setAdminHubOpen(false); setAdminNotesOpen(true) }}
       />
     )
   }
@@ -437,6 +444,14 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
   if (muscleVolumeOpen) {
     return <MuscleVolumePage userId={userId} onClose={() => { setMuscleVolumeOpen(false); setReportsHubOpen(true) }} />
+  }
+
+  if (notesOpen) {
+    return <WorkoutNotesPage userId={userId} onClose={() => { setNotesOpen(false); setReportsHubOpen(true) }} />
+  }
+
+  if (adminNotesOpen) {
+    return <WorkoutNotesPage userId={null} onClose={() => { setAdminNotesOpen(false); setAdminHubOpen(true) }} />
   }
 
   if (densityOpen) {
@@ -675,6 +690,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           { title: 'טיימר מנוחה', body: 'לחץ על הטיימר בפס הכחול/אפור להפעלה. כוונן זמן עם + / −.' },
           { title: 'ניווט תאריכים', body: 'חץ שמאלה = יום קודם. חץ ימינה = יום הבא (עד היום).' },
           { title: 'תוכנית אימונים', body: 'מסך הבית מציג רק תרגילים מהתוכנית הפעילה, ומונה התרגילים מחושב מולה. לעריכה: ⚙️ ← 🎯 תוכנית אימונים.' },
+          { title: 'הערה על התרגיל', body: 'במסך רישום התרגיל, מתחת לסטים, אפשר לכתוב איך היה התרגיל. ההערה נשמרת ומופיעה בדוח "הערות אימון".' },
           { title: 'תרגיל רשות', body: 'תגית "Opt" כתומה בפינה השמאלית-עליונה של התמונה מסמנת תרגיל רשות — כדאי אך לא חובה. הסימון נעשה בעריכת התוכנית.' },
           { title: 'טאבים של אימונים', body: 'אם התוכנית מחולקת לאימונים, שורת הטאבים מעל התרגילים מציגה כל אימון עם מונה ביצוע. הטאב שנפתח הוא האימון הבא בתור. "הכל" מציג את כל התוכנית לפי אימונים.' },
           { title: 'כפתורי ניווט', body: '⚙️ ניהול תרגילים ותוכנית · 📊 דוחות · 📖 מדריך · 🗓 הצגת השבוע' },

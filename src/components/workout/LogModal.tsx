@@ -30,6 +30,9 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           weight: exercise.default_weight,
         }))
   )
+  // One note per exercise per day. Stored on every set row of this save, so it
+  // survives even if some rows are later removed.
+  const [note, setNote] = useState(todayLogs.find(l => l.notes)?.notes ?? '')
   const [loading, setLoading]           = useState(false)
   const [undoing, setUndoing]           = useState(false)
   const [savingDefaults, setSavingDefaults] = useState(false)
@@ -61,6 +64,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
       // Recorded from the exercise's own assignment, so it is right regardless
       // of which tab the user happened to be on
       workout_id:     workoutId,
+      notes:          note.trim() || null,
     }))
     const { data } = await supabase.from('workout_logs').insert(records).select()
     onSaved(exercise.id, (data ?? []) as WorkoutLog[])
@@ -177,6 +181,20 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
               </div>
             </div>
           ))}
+        </div>
+
+        {/* How the exercise felt — read later by the coach */}
+        <div className="mb-4">
+          <label className="text-gray-500 text-xs font-medium block mb-1.5">
+            איך היה התרגיל? (רשות)
+          </label>
+          <textarea
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            rows={2}
+            placeholder="הרגשה, קושי, כאב, הערה למאמן..."
+            className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 text-sm outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+          />
         </div>
 
         {/* Confirm */}

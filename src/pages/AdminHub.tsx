@@ -7,9 +7,10 @@ interface Props {
   onAdminProgress: () => void
   onAdminDensity: () => void
   onAdminWeeklyDensity: () => void
+  onAdminNotes: () => void
 }
 
-export default function AdminHub({ onClose, onAdminPage, onAdminProgress, onAdminDensity, onAdminWeeklyDensity }: Props) {
+export default function AdminHub({ onClose, onAdminPage, onAdminProgress, onAdminDensity, onAdminWeeklyDensity, onAdminNotes }: Props) {
   const [helpOpen, setHelpOpen] = useState(false)
 
   return (
@@ -45,6 +46,12 @@ export default function AdminHub({ onClose, onAdminPage, onAdminProgress, onAdmi
           description="עצימות שבועית מצטברת לפי קבוצת שריר עבור כל המשתמשים"
           onClick={onAdminWeeklyDensity}
         />
+        <HubCard
+          icon="📝"
+          title="הערות אימון — כל המשתמשים"
+          description="מה כתבו המתאמנים על התרגילים שביצעו"
+          onClick={onAdminNotes}
+        />
       </div>
 
       {helpOpen && (
@@ -53,6 +60,7 @@ export default function AdminHub({ onClose, onAdminPage, onAdminProgress, onAdmi
           { title: 'התקדמות עצימות', body: 'טבלת עצימות לפי תרגיל ותאריך — ניתן לסנן לפי משתמש.' },
           { title: 'עצימות יומית', body: 'עצימות לפי קבוצת שריר לכל יום אימון — ניתן לסנן לפי משתמש.' },
           { title: 'עצימות שבועית', body: 'עצימות שבועית מצטברת לפי קבוצת שריר — ניתן לסנן לפי משתמש.' },
+          { title: 'הערות אימון', body: 'ההערות שהמתאמנים כתבו בעת רישום תרגיל — תאריך, משתמש, תרגיל וטקסט. ניתן לסנן למשתמש מסוים.' },
         ]} />
       )}
     </div>
