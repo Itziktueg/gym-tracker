@@ -42,6 +42,16 @@ function endOfDay(date: Date): string {
   return d.toISOString()
 }
 
+/** A hung request must not leave the app on the loading screen forever — on a
+ *  weak mobile connection a fetch can neither resolve nor reject. */
+function withTimeout<T>(p: PromiseLike<T>, ms = 15000): Promise<T> {
+  return Promise.race([
+    p as Promise<T>,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('הטעינה נתקעה — ייתכן שאין חיבור לרשת')), ms)),
+  ])
+}
+
 function isSameDay(a: Date, b: Date) {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -90,6 +100,8 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [selectedWorkout, setSelectedWorkout] = useState<string | null>(null)  // null = הכל
   const [planLoaded, setPlanLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [startupError, setStartupError] = useState<string | null>(null)
+  const [retryTick, setRetryTick] = useState(0)
 
   const isToday = isSameDay(selectedDate, new Date())
 
@@ -306,11 +318,21 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      await fetchExercises()
-      if (!cancelled) await fetchActivePlan()
+      try {
+        setStartupError(null)
+        await withTimeout(fetchExercises())
+        if (!cancelled) await withTimeout(fetchActivePlan())
+      } catch (e) {
+        if (cancelled) return
+        // Always release the loading gate, or the app sits on "טוען אימון..."
+        // with no way forward.
+        setStartupError((e as { message?: string })?.message ?? 'שגיאה בטעינה')
+        setLoading(false)
+        setPlanLoaded(true)
+      }
     })()
     return () => { cancelled = true }
-  }, [fetchExercises, fetchActivePlan]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchExercises, fetchActivePlan, retryTick]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { fetchLogsForDate(selectedDate) }, [fetchLogsForDate, selectedDate])
 
   // ── Date navigation ────────────────────────────────────────
@@ -390,6 +412,32 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         },
       ].filter(s => s.items.length > 0)
     : []
+
+  if (startupError) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6" dir="rtl">
+        <div className="bg-white rounded-2xl shadow-sm p-6 max-w-sm w-full text-center">
+          <p className="text-3xl mb-2">⚠️</p>
+          <p className="text-gray-800 font-bold text-sm mb-1">האפליקציה לא הצליחה להיטען</p>
+          <p className="text-gray-500 text-xs leading-relaxed mb-4">{startupError}</p>
+          <button
+            onClick={() => {
+              setLoading(true); setPlanLoaded(false); setRetryTick(t => t + 1)
+            }}
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl py-3 text-sm"
+          >
+            נסה שוב
+          </button>
+          <button
+            onClick={() => location.reload()}
+            className="w-full mt-2 bg-gray-100 text-gray-600 font-medium rounded-xl py-2.5 text-sm"
+          >
+            רענן את האפליקציה
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (loading || !planLoaded) {
     return (
