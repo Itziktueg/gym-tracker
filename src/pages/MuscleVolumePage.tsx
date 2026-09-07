@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { loadChart, AXIS, GRID, type ChartType } from '../lib/loadChart'
 import HelpModal from '../components/HelpModal'
 
 interface Props {
@@ -9,20 +10,25 @@ interface Props {
 
 /** Display grouping over the 19 real muscles. Sums of the muscles beneath it,
  *  never a single tag on the exercise. */
-const GROUPS: { name: string; dot: string; muscles: string[] }[] = [
-  { name: 'רגליים', dot: 'bg-blue-500', muscles:
+// hex mirrors dot — the chart must use the same colour the table shows
+const GROUPS: { name: string; dot: string; hex: string; muscles: string[] }[] = [
+  { name: 'רגליים', dot: 'bg-blue-500', hex: '#3b82f6', muscles:
     ['ארבע-ראשי', 'המסטרינג', 'ישבן', 'מקרבי הירך', 'מרחיקי הירך', 'שוקיים'] },
-  { name: 'גב', dot: 'bg-violet-500', muscles:
+  { name: 'גב', dot: 'bg-violet-500', hex: '#8b5cf6', muscles:
     ['רחב גבי', 'טרפז', 'מעוין', 'זוקפי הגב'] },
-  { name: 'חזה', dot: 'bg-orange-500', muscles:
+  { name: 'חזה', dot: 'bg-orange-500', hex: '#f97316', muscles:
     ['חזה גדול', 'חזה קטן'] },
-  { name: 'כתפיים', dot: 'bg-cyan-500', muscles:
+  { name: 'כתפיים', dot: 'bg-cyan-500', hex: '#06b6d4', muscles:
     ['כתף קדמית', 'כתף צידית', 'כתף אחורית'] },
-  { name: 'ידיים', dot: 'bg-rose-500', muscles:
+  { name: 'ידיים', dot: 'bg-rose-500', hex: '#f43f5e', muscles:
     ['דו-ראשי זרועי', 'תלת-ראשי זרועי'] },
-  { name: 'ליבה', dot: 'bg-teal-500', muscles:
+  { name: 'ליבה', dot: 'bg-teal-500', hex: '#14b8a6', muscles:
     ['ישר בטני', 'אלכסונים'] },
 ]
+
+/** MEV / top of MAV — the band the chart shades behind the bars. */
+const MEV = 10
+const MAV = 20
 
 function toISODate(d: Date) {
   const y = d.getFullYear()
@@ -71,6 +77,91 @@ export default function MuscleVolumePage({ userId, onClose }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [loading,  setLoading]  = useState(true)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [view,      setView]      = useState<'table' | 'chart'>('table')
+  const [chartWeek, setChartWeek] = useState<string>('')
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const chartRef  = useRef<ChartType | null>(null)
+
+  // Default to the newest week once data arrives
+  useEffect(() => {
+    if (!chartWeek && weeks.length > 0) setChartWeek(weeks[0])
+  }, [weeks, chartWeek])
+
+  useEffect(() => {
+    if (view !== 'chart' || !chartWeek) return
+    let alive = true
+
+    loadChart().then(({ default: Chart }) => {
+      if (!alive || !canvasRef.current) return
+      chartRef.current?.destroy()
+
+      // Every muscle that has ever been trained, so the rows stay stable
+      // week to week and a zero reads as "skipped" rather than vanishing.
+      const rows = GROUPS.flatMap(g => g.muscles.map(m => ({ m, hex: g.hex })))
+        .filter(r => vol[r.m] && Object.keys(vol[r.m]).length > 0)
+        .map(r => ({ ...r, v: Math.round((vol[r.m]?.[chartWeek] ?? 0) * 10) / 10 }))
+        .sort((a, b) => b.v - a.v)
+
+      // Shaded 10-20 band: the target range for a single muscle
+      const band = {
+        id: 'band',
+        beforeDatasetsDraw(chart: ChartType) {
+          const x = chart.scales.x, y = chart.scales.y, g = chart.ctx
+          g.save()
+          g.fillStyle = 'rgba(20,184,166,0.10)'
+          g.fillRect(x.getPixelForValue(MEV), y.top,
+                     x.getPixelForValue(MAV) - x.getPixelForValue(MEV), y.bottom - y.top)
+          g.restore()
+        },
+      }
+
+      // Value at the end of each bar
+      const labels = {
+        id: 'endLabels',
+        afterDatasetsDraw(chart: ChartType) {
+          const g = chart.ctx
+          g.save()
+          g.font = 'bold 10px system-ui, sans-serif'
+          g.textBaseline = 'middle'
+          g.textAlign = 'left'
+          g.fillStyle = '#6b7280'
+          chart.getDatasetMeta(0).data.forEach((el, i) => {
+            const v = rows[i]?.v
+            if (!v) return
+            const p = el.getProps(['x', 'y'], true)
+            g.fillText(String(v), p.x + 5, p.y)
+          })
+          g.restore()
+        },
+      }
+
+      chartRef.current = new Chart(canvasRef.current, {
+        type: 'bar',
+        data: {
+          labels: rows.map(r => r.m),
+          datasets: [{
+            data: rows.map(r => r.v),
+            backgroundColor: rows.map(r => r.hex),
+            borderRadius: 3,
+          }],
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { right: 26 } },   // room for the end labels
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: GRID }, border: { display: false }, ticks: { color: AXIS } },
+            y: { grid: { display: false }, ticks: { color: AXIS, font: { size: 10 } } },
+          },
+        },
+        plugins: [band, labels],
+      })
+    })
+
+    return () => { alive = false; chartRef.current?.destroy(); chartRef.current = null }
+  }, [view, chartWeek, vol])
 
   useEffect(() => { load() }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -143,13 +234,52 @@ export default function MuscleVolumePage({ userId, onClose }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col" dir="rtl">
+    <div className="h-dvh bg-gray-100 flex flex-col" dir="rtl">
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
-        <h1 className="text-gray-800 font-bold text-lg">נפח לפי שריר</h1>
-        <button onClick={() => setHelpOpen(true)}
-          className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
+        <h1 className="text-gray-800 font-bold text-base">נפח לפי שריר</h1>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center rounded-lg overflow-hidden border border-gray-300 text-[11px] font-bold">
+            <button
+              onClick={() => setView('table')}
+              className={`px-2 py-1 ${view === 'table' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+            >טבלה</button>
+            <button
+              onClick={() => setView('chart')}
+              className={`px-2 py-1 ${view === 'chart' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+            >גרף</button>
+          </span>
+          <button onClick={() => setHelpOpen(true)}
+            className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
+        </div>
       </div>
+
+      {view === 'chart' && weeks.length > 0 && (
+        <div className="flex-1 min-h-0 flex flex-col px-3 pt-2 pb-2">
+          <div className="flex items-center gap-2 mb-1 shrink-0">
+            <select
+              value={chartWeek}
+              onChange={e => setChartWeek(e.target.value)}
+              className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 outline-none"
+            >
+              {weeks.map(w => (
+                <option key={w} value={w}>{shortDate(w)} · שבוע {weekNumber(w)}</option>
+              ))}
+            </select>
+            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+              <span className="w-3 h-2.5 rounded-sm" style={{ background: 'rgba(20,184,166,0.25)' }} />
+              {MEV}–{MAV} טווח מיטבי
+            </span>
+          </div>
+          <div className="flex-1 min-h-0 relative w-full">
+            <canvas
+              ref={canvasRef}
+              role="img"
+              aria-label="גרף עמודות אופקי של סטים שבועיים לכל שריר מול טווח היעד"
+            />
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center"><p className="text-gray-400">טוען...</p></div>
@@ -157,7 +287,7 @@ export default function MuscleVolumePage({ userId, onClose }: Props) {
         <div className="flex-1 flex items-center justify-center px-8">
           <p className="text-gray-400 text-sm text-center">אין נתונים להצגה</p>
         </div>
-      ) : (
+      ) : view === 'chart' ? null : (
         <div className="flex-1 overflow-auto">
           <table className="text-sm border-separate" style={{ borderSpacing: 0 }}>
             <thead className="sticky top-0 z-20">
@@ -225,6 +355,8 @@ export default function MuscleVolumePage({ userId, onClose }: Props) {
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
           { title: 'מה הדוח מראה', body: 'כמה סטים שבועיים בוצעו לכל שריר בפועל — לפי 19 קבוצות שריר אמיתיות, ולא לפי 4 אזורי גוף כלליים.' },
           { title: 'איך מחושב', body: 'כל סט נספר במלואו לשריר הראשי של התרגיל, וכחצי סט לכל שריר משני. כך דדליפט למשל מזוכה גם לזוקפי הגב ולא רק לרגליים.' },
+          { title: 'תצוגת גרף', body: 'מתג "טבלה / גרף" בכותרת מציג את השבוע הנבחר כעמודות אופקיות, שריר אחר שריר, ממוין מהגבוה לנמוך. הרצועה הירוקה היא טווח היעד 10-20 סטים.' },
+          { title: 'בחירת שבוע', body: 'בתצוגת הגרף התפריט העליון בוחר את השבוע המוצג. ברירת המחדל היא השבוע האחרון.' },
           { title: 'קיבוץ', body: 'ברירת המחדל מציגה 6 קבוצות-על. לחיצה על שם קבוצה פותחת אותה לשרירים הבודדים שמרכיבים אותה.' },
           { title: 'צבעים ויעדים', body: 'הצבעים חלים רק על שרירים בודדים: כתום מתחת ל-10 סטים · כחול סביב 10 (מינימום אפקטיבי) · ירוק 12-20 (טווח מיטבי) · סגול מעל 20. אלה הערכות כלליות מהספרות המקצועית, לא יעדים אישיים.' },
           { title: 'שורות הקיבוץ', body: 'המספר בשורת קבוצת-על הוא סכום השרירים שמתחתיה ולכן אינו נצבע — 36 סטים ל"רגליים" הם כ-6 סטים לכל אחד מ-6 השרירים, כלומר מתחת למינימום ולא מעליו. פתח את הקבוצה כדי לראות את התמונה האמיתית.' },
