@@ -4,6 +4,10 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 const CHECK_INTERVAL_MS = 60 * 60 * 1000   // 1 hour
 
 export default function UpdatePrompt() {
+  // With registerType 'autoUpdate' a new worker applies itself, so needRefresh
+  // rarely fires and the banner rarely shows. The component is kept for the
+  // periodic update checks below, which are what pull a new build down on a
+  // device that stays open for days.
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,

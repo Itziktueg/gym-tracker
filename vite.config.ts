@@ -24,10 +24,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      // 'prompt' rather than 'autoUpdate': a backgrounded PWA can serve a stale
-      // bundle for days without ever reloading. UpdatePrompt makes that visible
-      // and lets the user apply it.
-      registerType: 'prompt',
+      // 'autoUpdate', not 'prompt'. With 'prompt' a device that never sees the
+      // banner keeps its old service worker indefinitely; if that worker's
+      // cached index.html points at asset filenames Vercel has since deleted,
+      // the app loads a dead shell and shows a blank screen with no way out.
+      // Auto-applying costs a silent refresh and removes that trap.
+      registerType: 'autoUpdate',
       includeAssets: ['icon-192-v2.png', 'icon-512-v2.png', 'apple-touch-icon-v2.png'],
       manifest: {
         name: 'מעקב אימונים',
@@ -56,6 +58,16 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Purge precaches from previous builds — a leftover partial cache is
+        // what leaves a shell referencing assets that no longer exist.
+        cleanupOutdatedCaches: true,
+        // Take over open pages as soon as the new worker activates, instead of
+        // waiting for every tab to close.
+        skipWaiting: true,
+        clientsClaim: true,
+        // Serve the app shell for any navigation, so a missing precache entry
+        // falls back to the current index rather than a blank page.
+        navigateFallback: 'index.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
