@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchAllRows } from '../lib/fetchAllRows'
 import HelpModal from '../components/HelpModal'
 
 interface Props {
@@ -53,18 +54,21 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
 
   useEffect(() => {
     async function load() {
-      const { data: logs } = await supabase
+      const logs = await fetchAllRows<{
+        exercise_id: string; logged_at: string; intensity: number
+      }>((f, t) => supabase
         .from('workout_logs')
         .select('exercise_id, logged_at, intensity')
         .eq('user_id', userId)
         .order('logged_at')
+        .range(f, t))
 
       const { data: exData } = await supabase
         .from('exercises_user')
         .select('id, category')
         .eq('user_id', userId)
 
-      if (!logs || !exData) { setLoading(false); return }
+      if (!exData) { setLoading(false); return }
 
       const exCat: Record<string, string> = {}
       for (const ex of exData) exCat[ex.id] = ex.category ?? ''

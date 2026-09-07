@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchAllRows } from '../lib/fetchAllRows'
 import HelpModal from '../components/HelpModal'
 
 interface Props {
@@ -50,18 +51,22 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
 
   useEffect(() => {
     async function load() {
-      const { data: logs } = await supabase
+      const logs = await fetchAllRows<{
+        exercise_id: string; logged_at: string; sets_completed: number
+        reps_completed: number; weight: number; intensity: number
+      }>((f, t) => supabase
         .from('workout_logs')
         .select('exercise_id, logged_at, sets_completed, reps_completed, weight, intensity')
         .eq('user_id', userId)
         .order('logged_at', { ascending: false })
+        .range(f, t))
 
       const { data: exercises } = await supabase
         .from('exercises_user')
         .select('id, name_he, category, is_bilateral, double_weight')
         .eq('user_id', userId)
 
-      if (!logs || !exercises) { setLoading(false); return }
+      if (!exercises) { setLoading(false); return }
 
       const exMap: Record<string, { name: string; category: string; bilateral: boolean; doubleWeight: boolean }> = {}
       for (const ex of exercises) exMap[ex.id] = { name: ex.name_he, category: ex.category ?? '', bilateral: ex.is_bilateral ?? false, doubleWeight: ex.double_weight ?? false }

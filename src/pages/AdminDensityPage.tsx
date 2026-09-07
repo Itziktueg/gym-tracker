@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchAllRows } from '../lib/fetchAllRows'
 import HelpModal from '../components/HelpModal'
 import type { Profile } from '../types/database'
 
@@ -76,18 +77,21 @@ export default function AdminDensityPage({ onClose }: Props) {
     const ids = [...selected]
     if (ids.length === 0) { setBlocks([]); setLoading(false); return }
 
-    const { data: logs } = await supabase
+    const logs = await fetchAllRows<{
+      exercise_id: string; logged_at: string; intensity: number; user_id: string
+    }>((f, t) => supabase
       .from('workout_logs')
       .select('exercise_id, logged_at, intensity, user_id')
       .in('user_id', ids)
       .order('logged_at')
+      .range(f, t))
 
     const { data: exData } = await supabase
       .from('exercises_user')
       .select('id, category, user_id')
       .in('user_id', ids)
 
-    if (!logs || !exData) { setLoading(false); return }
+    if (!exData) { setLoading(false); return }
 
     const newBlocks: UserBlock[] = []
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchAllRows } from '../lib/fetchAllRows'
 import HelpModal from '../components/HelpModal'
 
 interface Props {
@@ -43,11 +44,14 @@ export default function ProgressPage({ userId, onClose }: Props) {
   useEffect(() => {
     async function load() {
       // Fetch all logs with intensity for this user
-      const { data: logs } = await supabase
+      const logs = await fetchAllRows<{
+        exercise_id: string; logged_at: string; intensity: number
+      }>((f, t) => supabase
         .from('workout_logs')
         .select('exercise_id, logged_at, intensity')
         .eq('user_id', userId)
         .order('logged_at')
+        .range(f, t))
 
       // Fetch user exercises (name + category)
       const { data: exData } = await supabase
@@ -55,7 +59,7 @@ export default function ProgressPage({ userId, onClose }: Props) {
         .select('id, name_he, category')
         .eq('user_id', userId)
 
-      if (!logs || !exData) { setLoading(false); return }
+      if (!exData) { setLoading(false); return }
 
       // Build pivot: exerciseId -> date -> total intensity
       const pivotMap: Record<string, Record<string, number>> = {}
