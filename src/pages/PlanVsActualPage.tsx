@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { loadChart, AXIS, GRID, type ChartType } from '../lib/loadChart'
 import HelpModal from '../components/HelpModal'
 import type { ExerciseUser, WorkoutPlan } from '../types/database'
 
@@ -65,10 +66,105 @@ function pctClass(p: number | null) {
 
 const W = { week: 68, metric: 62, total: 58 }
 
+/** A line copes with more points than stacked bars, so it shows a longer trend. */
+const CHART_WEEKS = 12
+
 export default function PlanVsActualPage({ userId, onClose }: Props) {
   const [rows,     setRows]     = useState<WeekRow[]>([])
   const [loading,  setLoading]  = useState(true)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [view,     setView]     = useState<'table' | 'chart'>('table')
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const chartRef  = useRef<ChartType | null>(null)
+
+  useEffect(() => {
+    if (view !== 'chart' || rows.length === 0) return
+    let alive = true
+
+    loadChart().then(({ default: Chart }) => {
+      if (!alive || !canvasRef.current) return
+      chartRef.current?.destroy()
+
+      // rows is newest-first; flip so the trend climbs to the right
+      const pts = rows.slice(0, CHART_WEEKS).reverse()
+
+      // Dashed 100% line — the target the percentage is measured against
+      const target = {
+        id: 'target',
+        beforeDatasetsDraw(chart: ChartType) {
+          const y = chart.scales.y, x = chart.scales.x, g = chart.ctx
+          const py = y.getPixelForValue(100)
+          if (py < y.top || py > y.bottom) return
+          g.save()
+          g.strokeStyle = '#9ca3af'
+          g.lineWidth = 1
+          g.setLineDash([4, 4])
+          g.beginPath()
+          g.moveTo(x.left, py)
+          g.lineTo(x.right, py)
+          g.stroke()
+          g.restore()
+        },
+      }
+
+      const labels = {
+        id: 'pointLabels',
+        afterDatasetsDraw(chart: ChartType) {
+          const g = chart.ctx
+          g.save()
+          g.font = 'bold 10px system-ui, sans-serif'
+          g.textAlign = 'center'
+          g.fillStyle = '#4b5563'
+          chart.getDatasetMeta(0).data.forEach((el, i) => {
+            const v = pts[i]?.overall
+            if (v === null || v === undefined) return
+            const p = el.getProps(['x', 'y'], true)
+            g.fillText(`${v}%`, p.x, p.y - 10)
+          })
+          g.restore()
+        },
+      }
+
+      const max = Math.max(110, ...pts.map(p => p.overall ?? 0) ) + 8
+
+      chartRef.current = new Chart(canvasRef.current, {
+        type: 'line',
+        data: {
+          labels: pts.map(p => shortDate(p.sunday)),
+          datasets: [{
+            data: pts.map(p => p.overall),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.10)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            spanGaps: false,           // a week with no plan leaves a real gap
+            pointRadius: 4,
+            pointBackgroundColor: '#3b82f6',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 16 } },   // room for the point labels
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: AXIS, font: { size: 10 } } },
+            y: {
+              min: 0, max,
+              grid: { color: GRID }, border: { display: false },
+              ticks: { color: AXIS, stepSize: 25, callback: v => `${v}%` },
+            },
+          },
+        },
+        plugins: [target, labels],
+      })
+    })
+
+    return () => { alive = false; chartRef.current?.destroy(); chartRef.current = null }
+  }, [view, rows])
 
   useEffect(() => { load() }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -205,15 +301,45 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col" dir="rtl">
+    <div className="h-dvh bg-gray-100 flex flex-col" dir="rtl">
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
-        <h1 className="text-gray-800 font-bold text-lg">ביצוע לעומת תכנון</h1>
-        <button
-          onClick={() => setHelpOpen(true)}
-          className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center"
-        >?</button>
+        <h1 className="text-gray-800 font-bold text-base">ביצוע לעומת תכנון</h1>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center rounded-lg overflow-hidden border border-gray-300 text-[11px] font-bold">
+            <button
+              onClick={() => setView('table')}
+              className={`px-2 py-1 ${view === 'table' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+            >טבלה</button>
+            <button
+              onClick={() => setView('chart')}
+              className={`px-2 py-1 ${view === 'chart' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+            >גרף</button>
+          </span>
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center"
+          >?</button>
+        </div>
       </div>
+
+      {view === 'chart' && rows.length > 0 && (
+        <div className="flex-1 min-h-0 flex flex-col px-3 pt-3 pb-2">
+          <p className="text-gray-500 text-xs mb-1 shrink-0">
+            אחוז ביצוע שבועי · הקו המקווקו הוא 100%
+          </p>
+          <div className="flex-1 min-h-0 relative w-full">
+            <canvas
+              ref={canvasRef}
+              role="img"
+              aria-label="גרף קו של אחוז הביצוע השבועי מול קו יעד של מאה אחוז"
+            />
+          </div>
+          <p className="text-gray-400 text-xs text-center pt-2 shrink-0">
+            {CHART_WEEKS} השבועות האחרונים · הישן משמאל, החדש מימין
+          </p>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
@@ -223,7 +349,7 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
         <div className="flex-1 flex items-center justify-center px-8">
           <p className="text-gray-400 text-sm text-center">אין נתונים להצגה</p>
         </div>
-      ) : (
+      ) : view === 'chart' ? null : (
         <div className="flex-1 overflow-auto">
           <table className="text-sm border-separate" style={{ borderSpacing: 0 }}>
             <thead className="sticky top-0 z-20">
@@ -322,6 +448,7 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
           { title: 'מה נספר בפועל', body: 'רק תרגילים שנמצאים באותה תוכנית, כדי ששני הצדדים ימדדו את אותו דבר.' },
           { title: 'עמודת אימונים', body: 'כמה אימונים מהתוכנית הושלמו באותו שבוע. אימון נחשב כבוצע כאשר לפחות מחצית מהתרגילים שבו נרשמו. בתוכנית ללא חלוקה לאימונים העמודה ריקה.' },
           { title: 'אחוז הביצוע', body: 'ממוצע של ארבעת האחוזים — תרגילים, סטים, חזרות ועצימות. עמודת האימונים אינה נכללת בחישוב. מעל 100% אפשרי כאשר בוצע יותר מהמתוכנן.' },
+          { title: 'תצוגת גרף', body: 'מתג "טבלה / גרף" בכותרת מציג את אחוז הביצוע הכולל כקו לאורך 12 השבועות האחרונים, עם קו מקווקו ב-100%. שבוע ללא תוכנית מופיע כפער בקו.' },
           { title: 'צבעים', body: 'ירוק 90% ומעלה · כחול 70% ומעלה · כתום 50% ומעלה · אדום מתחת ל-50%.' },
           { title: 'שבוע ללא תוכנית', body: 'שבוע שלא הייתה בו תוכנית פעילה מוצג עם — בכל העמודות.' },
         ]} />
