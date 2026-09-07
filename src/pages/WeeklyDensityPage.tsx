@@ -165,9 +165,9 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
     )
   }
 
+  // h-dvh, not min-h-screen: the chart must fit the viewport exactly, and dvh
+  // accounts for the mobile browser chrome that vh ignores.
   return (
-    {/* h-dvh, not min-h-screen: the chart must fit the viewport exactly, and dvh
-        accounts for the mobile browser chrome that vh ignores. */}
     <div className="h-dvh bg-gray-100 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
@@ -188,9 +188,9 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
         </div>
       </div>
 
+      {/* min-h-0 lets the canvas shrink to the space left over, so the whole
+          view fits one screen on both phone and laptop without scrolling. */}
       {view === 'chart' && (
-        {/* min-h-0 lets the canvas shrink to the space left over, so the whole
-            view fits one screen on both phone and laptop without scrolling. */}
         <div className="flex-1 min-h-0 flex flex-col px-3 pt-3 pb-2">
           <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2 shrink-0">
             {CATEGORY_ORDER.map(cat => (
