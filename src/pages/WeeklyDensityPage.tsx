@@ -46,6 +46,9 @@ function formatSunday(sundayStr: string) {
 const COL_WIDTH  = 72
 const NAME_WIDTH = 140
 
+/** Chart shows a fixed recent window so it always fits one screen. */
+const WEEKS_SHOWN = 6
+
 export default function WeeklyDensityPage({ userId, onClose }: Props) {
   const [weeks,   setWeeks]   = useState<string[]>([])
   const [pivot,   setPivot]   = useState<Record<string, Record<string, number>>>({})
@@ -66,12 +69,16 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
       if (!alive || !canvasRef.current) return
       chartRef.current?.destroy()
 
-      const ordered = [...weeks].reverse()
+      // weeks is newest-first, so take the head then flip for the chart axis
+      const ordered = weeks.slice(0, WEEKS_SHOWN).reverse()
+
+      // Must match CATEGORY_DOT — these are the Tailwind 500 values the legend
+      // and the whole app already use for these categories.
       const colors: Record<string, string> = {
-        'פלג גוף תחתון': '#2a78d6',
-        'גב וכתפיים':    '#eb6834',
-        'חזה וזרועות':   '#1baf7a',
-        'בטן וליבה':     '#eda100',
+        'פלג גוף תחתון': '#3b82f6',   // blue-500
+        'גב וכתפיים':    '#8b5cf6',   // violet-500
+        'חזה וזרועות':   '#f97316',   // orange-500
+        'בטן וליבה':     '#14b8a6',   // teal-500
       }
 
       chartRef.current = new Chart(canvasRef.current, {
@@ -159,7 +166,9 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    {/* h-dvh, not min-h-screen: the chart must fit the viewport exactly, and dvh
+        accounts for the mobile browser chrome that vh ignores. */}
+    <div className="h-dvh bg-gray-100 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
@@ -180,8 +189,10 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
       </div>
 
       {view === 'chart' && (
-        <div className="flex-1 overflow-auto p-4">
-          <div className="flex flex-wrap gap-3 mb-3">
+        {/* min-h-0 lets the canvas shrink to the space left over, so the whole
+            view fits one screen on both phone and laptop without scrolling. */}
+        <div className="flex-1 min-h-0 flex flex-col px-3 pt-3 pb-2">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2 shrink-0">
             {CATEGORY_ORDER.map(cat => (
               <span key={cat} className="flex items-center gap-1.5 text-xs text-gray-500">
                 <span className={`w-2.5 h-2.5 rounded-sm ${CATEGORY_DOT[cat]}`} />
@@ -189,15 +200,15 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
               </span>
             ))}
           </div>
-          <div className="relative w-full" style={{ height: Math.max(260, weeks.length * 46) }}>
+          <div className="flex-1 min-h-0 relative w-full">
             <canvas
               ref={canvasRef}
               role="img"
               aria-label="גרף עמודות מוערמות של עצימות שבועית לפי קבוצת שריר"
             />
           </div>
-          <p className="text-gray-400 text-xs text-center mt-3">
-            הישן משמאל · החדש מימין
+          <p className="text-gray-400 text-xs text-center pt-2 shrink-0">
+            {WEEKS_SHOWN} השבועות האחרונים · הישן משמאל, החדש מימין
           </p>
         </div>
       )}
