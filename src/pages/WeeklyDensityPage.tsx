@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { loadChart, valueLabels, AXIS, GRID, type ChartType } from '../lib/loadChart'
 import { supabase } from '../lib/supabase'
 import { fetchAllRows } from '../lib/fetchAllRows'
 import HelpModal from '../components/HelpModal'
@@ -51,6 +52,56 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
   const [totals,  setTotals]  = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [view, setView] = useState<'table' | 'chart'>('table')
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const chartRef  = useRef<ChartType | null>(null)
+
+  // Chart reads oldest-left to newest-right: a rising trend should climb to the
+  // right, which is the opposite of the table's newest-first column order.
+  useEffect(() => {
+    if (view !== 'chart' || weeks.length === 0) return
+    let alive = true
+
+    loadChart().then(({ default: Chart }) => {
+      if (!alive || !canvasRef.current) return
+      chartRef.current?.destroy()
+
+      const ordered = [...weeks].reverse()
+      const colors: Record<string, string> = {
+        'פלג גוף תחתון': '#2a78d6',
+        'גב וכתפיים':    '#eb6834',
+        'חזה וזרועות':   '#1baf7a',
+        'בטן וליבה':     '#eda100',
+      }
+
+      chartRef.current = new Chart(canvasRef.current, {
+        type: 'bar',
+        data: {
+          labels: ordered.map(w => formatSunday(w)),
+          datasets: CATEGORY_ORDER.map(cat => ({
+            label: cat,
+            data: ordered.map(w => Math.round(pivot[cat]?.[w] ?? 0)),
+            backgroundColor: colors[cat],
+          })),
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { color: AXIS } },
+            y: {
+              stacked: true, grid: { color: GRID }, border: { display: false },
+              ticks: { color: AXIS, callback: v => `${Math.round(Number(v) / 1000)}k` },
+            },
+          },
+        },
+        plugins: [valueLabels],
+      })
+    })
+
+    return () => { alive = false; chartRef.current?.destroy(); chartRef.current = null }
+  }, [view, weeks, pivot])
 
   useEffect(() => {
     async function load() {
@@ -112,12 +163,47 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
-        <h1 className="text-gray-800 font-bold text-lg">עצימות שבועית לפי קבוצת שריר</h1>
-        <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
+        <h1 className="text-gray-800 font-bold text-base">עצימות שבועית</h1>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center rounded-lg overflow-hidden border border-gray-300 text-[11px] font-bold">
+            <button
+              onClick={() => setView('table')}
+              className={`px-2 py-1 ${view === 'table' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+            >טבלה</button>
+            <button
+              onClick={() => setView('chart')}
+              className={`px-2 py-1 ${view === 'chart' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}`}
+            >גרף</button>
+          </span>
+          <button onClick={() => setHelpOpen(true)} className="text-gray-400 hover:text-gray-600 text-base font-bold w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center">?</button>
+        </div>
       </div>
 
+      {view === 'chart' && (
+        <div className="flex-1 overflow-auto p-4">
+          <div className="flex flex-wrap gap-3 mb-3">
+            {CATEGORY_ORDER.map(cat => (
+              <span key={cat} className="flex items-center gap-1.5 text-xs text-gray-500">
+                <span className={`w-2.5 h-2.5 rounded-sm ${CATEGORY_DOT[cat]}`} />
+                {cat}
+              </span>
+            ))}
+          </div>
+          <div className="relative w-full" style={{ height: Math.max(260, weeks.length * 46) }}>
+            <canvas
+              ref={canvasRef}
+              role="img"
+              aria-label="גרף עמודות מוערמות של עצימות שבועית לפי קבוצת שריר"
+            />
+          </div>
+          <p className="text-gray-400 text-xs text-center mt-3">
+            הישן משמאל · החדש מימין
+          </p>
+        </div>
+      )}
+
       {/* Table */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div className={`flex-1 overflow-hidden flex-col ${view === 'table' ? 'flex' : 'hidden'}`}>
         <div className="overflow-auto flex-1">
           <table className="border-collapse" style={{ minWidth: NAME_WIDTH + COL_WIDTH * weeks.length }}>
             <thead className="sticky top-0 z-20">
