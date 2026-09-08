@@ -125,10 +125,13 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
       onClick={onClose}
     >
+      {/* Capped and split into three: only the set list scrolls, so the title
+          and the action buttons stay put however many sets there are. */}
       <div
-        className="w-full max-w-lg bg-white rounded-t-3xl p-6 pb-12 shadow-2xl"
+        className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl max-h-[92dvh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
+        <div className="px-6 pt-6 shrink-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
           <button
@@ -171,9 +174,12 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           </div>
         )}
 
+        </div>
+
         {/* One card per set: reps/weight and its RIR live inside the same box,
-            separated by a hairline, with clear space between sets. */}
-        <div className="space-y-4 mb-6">
+            separated by a hairline, with clear space between sets.
+            min-h-0 is required or the flex child refuses to shrink and scroll. */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-1 space-y-4">
           {lines.map((line, i) => (
             <div
               key={i}
@@ -237,6 +243,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           ))}
         </div>
 
+        <div className="px-6 pb-12 pt-4 shrink-0">
         {/* How the exercise felt — read later by the coach */}
         <div className="mb-4">
           <label className="text-gray-500 text-xs font-medium block mb-1.5">
@@ -280,6 +287,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
             {undoing ? '...' : '↩ בטל ביצוע תרגיל'}
           </button>
         )}
+        </div>
       </div>
     </div>
   )
