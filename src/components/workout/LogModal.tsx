@@ -154,7 +154,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         </div>
 
         {(exercise.video_url || exercise.notes) && (
-          <div className="flex items-center justify-center gap-4 mb-4">
+          <div className="flex items-center justify-center gap-4 mb-3">
             {exercise.video_url && (
               <a
                 href={exercise.video_url}
@@ -169,7 +169,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         )}
 
         {exercise.notes && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2.5 mb-4 text-amber-800 text-sm leading-relaxed">
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2 mb-3 text-amber-800 text-sm leading-relaxed">
             {exercise.notes}
           </div>
         )}
@@ -243,18 +243,19 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           ))}
         </div>
 
-        <div className="px-6 pb-12 pt-4 shrink-0">
+        {/* Tight chrome so three set cards clear the scroll area on a phone */}
+        <div className="px-6 pb-5 pt-3 shrink-0">
         {/* How the exercise felt — read later by the coach */}
-        <div className="mb-4">
-          <label className="text-gray-500 text-xs font-medium block mb-1.5">
+        <div className="mb-3">
+          <label className="text-gray-500 text-xs font-medium block mb-1">
             איך היה התרגיל? (רשות)
           </label>
           <textarea
             value={note}
             onChange={e => setNote(e.target.value)}
-            rows={2}
+            rows={1}
             placeholder="הרגשה, קושי, כאב, הערה למאמן..."
-            className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-gray-800 text-sm outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+            className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 text-gray-800 text-sm outline-none focus:ring-2 focus:ring-blue-400 resize-none"
           />
         </div>
 
@@ -262,7 +263,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full font-bold rounded-2xl py-4 text-lg bg-green-600 hover:bg-green-500 active:bg-green-700 text-white transition-colors disabled:opacity-50 mb-3"
+          className="w-full font-bold rounded-2xl py-3 text-base bg-green-600 hover:bg-green-500 active:bg-green-700 text-white transition-colors disabled:opacity-50 mb-2"
         >
           {loading ? '...' : 'אשר ✓'}
         </button>
@@ -272,7 +273,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           onClick={handleUpdateDefaults}
           disabled={!allSame || savingDefaults}
           title={!allSame ? 'לא ניתן לשמור ברירות מחדל כאשר הסטים שונים זה מזה' : ''}
-          className="w-full font-medium rounded-2xl py-3 text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40 mb-3"
+          className="w-full font-medium rounded-2xl py-2.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40 mb-2"
         >
           {savingDefaults ? '...' : defaultsSaved ? '✓ נשמר' : 'עדכן ברירות מחדל'}
         </button>
