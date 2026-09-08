@@ -144,29 +144,30 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
             className="text-gray-800 text-lg font-bold text-center flex-1">
             {englishName || exercise.name_he}
           </h2>
-          <button
-            onClick={onEditExercise}
-            className="text-gray-400 hover:text-gray-600 w-10 h-10 flex items-center justify-center text-lg"
-            title="עריכת תרגיל"
-          >
-            ✏️
-          </button>
-        </div>
-
-        {(exercise.video_url || exercise.notes) && (
-          <div className="flex items-center justify-center gap-4 mb-3">
+          {/* Demo link lives in the header rather than its own row: that row cost
+              ~36px, which is the difference between three set cards fitting and
+              not once the undo button is present. */}
+          <div className="flex items-center shrink-0">
             {exercise.video_url && (
               <a
                 href={exercise.video_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 text-sm hover:text-blue-300"
+                className="text-blue-400 hover:text-blue-500 w-9 h-10 flex items-center justify-center text-base"
+                title="צפה בהדגמה"
               >
-                צפה בהדגמה ↗
+                ▶
               </a>
             )}
+            <button
+              onClick={onEditExercise}
+              className="text-gray-400 hover:text-gray-600 w-10 h-10 flex items-center justify-center text-lg"
+              title="עריכת תרגיל"
+            >
+              ✏️
+            </button>
           </div>
-        )}
+        </div>
 
         {exercise.notes && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2 mb-3 text-amber-800 text-sm leading-relaxed">
