@@ -14,8 +14,8 @@ export default function UpdatePrompt() {
 
   // registerType is 'autoUpdate', so the new worker installs and activates by
   // itself and useRegisterSW's needRefresh never fires. What it cannot do is
-  // reload this page — so the tab keeps running the old bundle until it does.
-  // Watching for the controller swap is what tells us new code is waiting.
+  // reload this page — the tab keeps running the old bundle until it does.
+  // The controller swap is what tells us new code is sitting there unused.
   useRegisterSW({
     onRegisteredSW(_url, registration) {
       if (!registration) return
@@ -43,21 +43,32 @@ export default function UpdatePrompt() {
 
   if (!ready) return null
 
-  // Deliberately not reloading on its own: a silent reload mid-set would throw
-  // away whatever is typed into the log modal. The user picks the moment.
+  // Blocking on purpose. A dismissible banner is easy to swipe past, and the
+  // app then keeps running stale code for days. There is no close affordance
+  // and the backdrop ignores taps — the only way out is to refresh.
+  // It cannot lock anyone out: after the reload the worker is current, so
+  // controllerchange does not fire again and this never reappears.
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[100] p-3 pb-5" dir="rtl">
-      <div className="mx-auto max-w-lg bg-blue-600 text-white rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-3">
-        <span className="text-xl shrink-0">🔄</span>
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm">גרסה חדשה מוכנה</p>
-          <p className="text-blue-100 text-xs mt-0.5">רענן כדי לעבור אליה</p>
-        </div>
+    <div
+      className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-6"
+      dir="rtl"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="update-title"
+    >
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center">
+        <p className="text-4xl mb-3">🔄</p>
+        <p id="update-title" className="text-gray-800 font-bold text-base mb-1">
+          גרסה חדשה זמינה
+        </p>
+        <p className="text-gray-500 text-sm leading-relaxed mb-5">
+          יש לרענן כדי להמשיך. האימונים שנשמרו אינם מושפעים.
+        </p>
         <button
           onClick={() => location.reload()}
-          className="bg-white text-blue-700 font-bold text-sm rounded-xl px-4 py-2 shrink-0 active:opacity-80"
+          className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-bold rounded-xl py-3.5 text-base"
         >
-          רענן
+          רענן עכשיו
         </button>
       </div>
     </div>
