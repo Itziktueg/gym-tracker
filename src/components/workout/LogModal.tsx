@@ -18,7 +18,17 @@ interface Props {
 interface SetLine {
   reps: number
   weight: number
+  rir: number | null      // reps in reserve; null = not recorded
 }
+
+/** 4 is the catch-all "4 or more reps still in the tank". */
+const RIR_OPTIONS = [
+  { value: 0, label: '0' },
+  { value: 1, label: '1' },
+  { value: 2, label: '2' },
+  { value: 3, label: '3' },
+  { value: 4, label: '+4' },
+]
 
 export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise, workoutId, lang = 'he' }: Props) {
   const englishName = lang === 'en' ? exercise.name_en?.trim() : ''
@@ -26,10 +36,11 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
 
   const [lines, setLines] = useState<SetLine[]>(
     todayLogs.length > 0
-      ? todayLogs.map(l => ({ reps: l.reps_completed, weight: l.weight }))
+      ? todayLogs.map(l => ({ reps: l.reps_completed, weight: l.weight, rir: l.rir ?? null }))
       : Array.from({ length: numSets }, () => ({
           reps: exercise.default_reps,
           weight: exercise.default_weight,
+          rir: null as number | null,
         }))
   )
   // One note per exercise per day. Stored on every set row of this save, so it
@@ -40,7 +51,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
   const [savingDefaults, setSavingDefaults] = useState(false)
   const [defaultsSaved, setDefaultsSaved]   = useState(false)
 
-  function updateLine(i: number, field: 'reps' | 'weight', value: number) {
+  function updateLine(i: number, field: 'reps' | 'weight' | 'rir', value: number | null) {
     setLines(prev => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l))
   }
 
@@ -67,6 +78,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
       // of which tab the user happened to be on
       workout_id:     workoutId,
       notes:          note.trim() || null,
+      rir:            line.rir,
     }))
     const { data } = await supabase.from('workout_logs').insert(records).select()
     onSaved(exercise.id, (data ?? []) as WorkoutLog[])
@@ -147,10 +159,12 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           </div>
         )}
 
-        {/* Set rows */}
-        <div className="space-y-3 mb-6">
+        {/* One card per set: reps/weight and its RIR live inside the same box,
+            separated by a hairline, with clear space between sets. */}
+        <div className="space-y-4 mb-6">
           {lines.map((line, i) => (
-            <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-2xl px-4 py-3">
+            <div key={i} className="bg-gray-50 rounded-2xl px-4 py-3">
+              <div className="flex items-center gap-2">
               <span className="text-gray-400 text-xs font-bold w-8 shrink-0 text-right">
                 סט {i + 1}
               </span>
@@ -181,6 +195,27 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
                 >+</button>
                 <span className="text-gray-400 text-xs w-6">ק"ג</span>
+              </div>
+              </div>
+
+              {/* RIR for this set — tap again to clear */}
+              <div className="flex items-center gap-1.5 mt-2.5 pt-2.5 border-t border-gray-200">
+                <span className="text-gray-400 text-xs font-bold w-8 shrink-0 text-right">RIR</span>
+                <div className="flex items-center gap-1 flex-1 justify-center">
+                  {RIR_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => updateLine(i, 'rir', line.rir === opt.value ? null : opt.value)}
+                      className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors ${
+                        line.rir === opt.value
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ))}

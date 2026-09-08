@@ -98,6 +98,7 @@ export interface WorkoutLog {
   notes: string | null
   logged_at: string
   workout_id: string | null    // which session this was logged under, if any
+  rir: number | null           // reps in reserve, 0-4 (4 means "4 or more"); null = not recorded
 }
 
 // Joined types used in the UI

@@ -24,6 +24,8 @@ interface ExerciseEntry {
   reps: number
   weight: number
   intensity: number
+  rirSum: number    // running total over sets that recorded an RIR
+  rirCount: number  // how many did, so the average ignores the rest
 }
 
 interface ExerciseHistory {
@@ -41,8 +43,8 @@ function formatDate(dateStr: string) {
 }
 
 // Widths inside each exercise mini-table
-const W = { date: 56, sets: 30, reps: 34, wt: 36, int: 54 }
-const BLOCK_W = W.date + W.sets + W.reps + W.wt + W.int  // 210 px
+const W = { date: 56, sets: 30, reps: 34, wt: 36, int: 54, rir: 32 }
+const BLOCK_W = W.date + W.sets + W.reps + W.wt + W.int + W.rir
 
 export default function WorkoutHistoryPage({ userId, onClose }: Props) {
   const [chunks, setChunks] = useState<ExerciseHistory[][]>([])
@@ -53,10 +55,10 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
     async function load() {
       const logs = await fetchAllRows<{
         exercise_id: string; logged_at: string; sets_completed: number
-        reps_completed: number; weight: number; intensity: number
+        reps_completed: number; weight: number; intensity: number; rir: number | null
       }>((f, t) => supabase
         .from('workout_logs')
-        .select('exercise_id, logged_at, sets_completed, reps_completed, weight, intensity')
+        .select('exercise_id, logged_at, sets_completed, reps_completed, weight, intensity, rir')
         .eq('user_id', userId)
         .order('logged_at', { ascending: false })
         .range(f, t))
@@ -77,13 +79,14 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
         const date = log.logged_at.slice(0, 10)
         if (!histMap[log.exercise_id]) histMap[log.exercise_id] = {}
         const byDate = histMap[log.exercise_id]
-        if (!byDate[date]) byDate[date] = { date, sets: 0, rows: 0, reps: 0, weight: 0, intensity: 0 }
+        if (!byDate[date]) byDate[date] = { date, sets: 0, rows: 0, reps: 0, weight: 0, intensity: 0, rirSum: 0, rirCount: 0 }
         const e = byDate[date]
         e.rows      += 1
         e.sets      += log.sets_completed ?? 1
         e.reps      += log.reps_completed ?? 0
         e.weight     = Math.max(e.weight, log.weight ?? 0)
         e.intensity += log.intensity ?? 0
+        if (log.rir !== null && log.rir !== undefined) { e.rirSum += log.rir; e.rirCount += 1 }
       }
 
       // Build sorted exercise list (only those with at least one log)
@@ -169,6 +172,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                         <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.reps }}>חזר'</span>
                         <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.wt }}>ק"ג</span>
                         <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.int }}>עצימות</span>
+                        <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.rir }}>RIR</span>
                       </div>
 
                       {/* Data rows */}
@@ -200,6 +204,12 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                             style={{ width: W.int }}>
                             {entry.intensity > 0 ? entry.intensity.toLocaleString() : '—'}
                           </span>
+                          <span className="text-xs text-gray-500 text-center py-1.5 tabular-nums"
+                            style={{ width: W.rir }}>
+                            {entry.rirCount > 0
+                              ? Math.round((entry.rirSum / entry.rirCount) * 10) / 10
+                              : '—'}
+                          </span>
                         </div>
                         )
                       })}
@@ -219,6 +229,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
       {helpOpen && (
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
           { title: 'מבנה הדוח', body: '3 תרגילים זה לצד זה, ממוינים לפי קבוצת שריר. לכל תרגיל עד 30 הביצועים האחרונים.' },
+          { title: 'RIR', body: 'ממוצע ה-RIR של אותו יום, מחושב רק מהסטים שסומנו. 0 = כשל · +4 = נשאר הרבה כוח. יום ללא סימון מוצג עם —.' },
           { title: 'גלילה', body: 'גלול ימינה לתרגילים נוספים בקבוצה. גלול מטה לקבוצות שרירים אחרות.' },
           { title: 'עצימות', body: 'ירוק = עצימות גבוהה (≥3000) · כחול = בינונית (≥1500) · אפור = נמוכה.' },
           { title: 'חזרות', body: 'מציג חזרות לכל סט. עמודת עצימות = סטים × חזרות × משקל (× 2 לתרגיל דו-צדדי).' },
