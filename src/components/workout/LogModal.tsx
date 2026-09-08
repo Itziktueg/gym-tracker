@@ -245,10 +245,10 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         </div>
 
         {/* Tight chrome so three set cards clear the scroll area on a phone */}
-        <div className="px-6 pb-5 pt-3 shrink-0">
+        <div className="px-6 pb-4 pt-2 shrink-0">
         {/* How the exercise felt — read later by the coach */}
-        <div className="mb-3">
-          <label className="text-gray-500 text-xs font-medium block mb-1">
+        <div className="mb-2">
+          <label className="text-gray-500 text-xs font-medium block mb-0.5">
             איך היה התרגיל? (רשות)
           </label>
           <textarea
@@ -264,31 +264,34 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full font-bold rounded-2xl py-3 text-base bg-green-600 hover:bg-green-500 active:bg-green-700 text-white transition-colors disabled:opacity-50 mb-2"
+          className="w-full font-bold rounded-2xl py-2.5 text-base bg-green-600 hover:bg-green-500 active:bg-green-700 text-white transition-colors disabled:opacity-50 mb-2"
         >
           {loading ? '...' : 'אשר ✓'}
         </button>
 
-        {/* Update defaults — disabled when sets differ */}
-        <button
-          onClick={handleUpdateDefaults}
-          disabled={!allSame || savingDefaults}
-          title={!allSame ? 'לא ניתן לשמור ברירות מחדל כאשר הסטים שונים זה מזה' : ''}
-          className="w-full font-medium rounded-2xl py-2.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40 mb-2"
-        >
-          {savingDefaults ? '...' : defaultsSaved ? '✓ נשמר' : 'עדכן ברירות מחדל'}
-        </button>
-
-        {/* Undo — only shown if logs already exist for today */}
-        {todayLogs.length > 0 && (
+        {/* Both secondaries share one row. Stacked, the undo button cost a whole
+            extra line and pushed the third set card out of the scroll area. */}
+        <div className="flex gap-2">
           <button
-            onClick={handleUndo}
-            disabled={undoing}
-            className="w-full py-3 rounded-2xl bg-red-50 hover:bg-red-100 text-red-500 text-sm font-medium disabled:opacity-50"
+            onClick={handleUpdateDefaults}
+            disabled={!allSame || savingDefaults}
+            title={!allSame ? 'לא ניתן לשמור ברירות מחדל כאשר הסטים שונים זה מזה' : ''}
+            className="flex-1 font-medium rounded-2xl py-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40"
           >
-            {undoing ? '...' : '↩ בטל ביצוע תרגיל'}
+            {savingDefaults ? '...' : defaultsSaved ? '✓ נשמר' : 'עדכן ברירות מחדל'}
           </button>
-        )}
+
+          {/* Only shown if logs already exist for today */}
+          {todayLogs.length > 0 && (
+            <button
+              onClick={handleUndo}
+              disabled={undoing}
+              className="flex-1 py-2 rounded-2xl bg-red-50 hover:bg-red-100 text-red-500 text-xs font-medium disabled:opacity-50"
+            >
+              {undoing ? '...' : '↩ בטל ביצוע'}
+            </button>
+          )}
+        </div>
         </div>
       </div>
     </div>
