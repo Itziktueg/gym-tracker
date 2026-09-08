@@ -276,7 +276,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
             onClick={handleUpdateDefaults}
             disabled={!allSame || savingDefaults}
             title={!allSame ? 'לא ניתן לשמור ברירות מחדל כאשר הסטים שונים זה מזה' : ''}
-            className="flex-1 font-medium rounded-2xl py-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-40"
+            className="flex-1 font-bold rounded-2xl py-2 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200 transition-colors disabled:opacity-40"
           >
             {savingDefaults ? '...' : defaultsSaved ? '✓ נשמר' : 'עדכן ברירות מחדל'}
           </button>
@@ -286,7 +286,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
             <button
               onClick={handleUndo}
               disabled={undoing}
-              className="flex-1 py-2 rounded-2xl bg-red-50 hover:bg-red-100 text-red-500 text-xs font-medium disabled:opacity-50"
+              className="flex-1 py-2 rounded-2xl bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 text-xs font-bold disabled:opacity-50"
             >
               {undoing ? '...' : '↩ בטל ביצוע'}
             </button>
