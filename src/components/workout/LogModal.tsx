@@ -21,17 +21,29 @@ interface SetLine {
   rir: number | null      // reps in reserve; null = not recorded
 }
 
-/** 4 is the catch-all "4 or more reps still in the tank". */
+/** Same muscle-group colours the tiles and reports use, so a set card is tied
+ *  to its exercise without adding any extra chrome. */
+const CATEGORY_ACCENT: Record<string, string> = {
+  'פלג גוף תחתון': '#3b82f6',   // blue-500
+  'גב וכתפיים':    '#8b5cf6',   // violet-500
+  'חזה וזרועות':   '#f97316',   // orange-500
+  'בטן וליבה':     '#14b8a6',   // teal-500
+}
+
+/** 4 is the catch-all "4 or more reps still in the tank".
+ *  Colour runs red (to failure) to green (plenty left), so the scale reads
+ *  without needing the numbers. */
 const RIR_OPTIONS = [
-  { value: 0, label: '0' },
-  { value: 1, label: '1' },
-  { value: 2, label: '2' },
-  { value: 3, label: '3' },
-  { value: 4, label: '+4' },
+  { value: 0, label: '0',  idle: 'bg-red-100 text-red-700 hover:bg-red-200',          on: 'bg-red-500 text-white' },
+  { value: 1, label: '1',  idle: 'bg-orange-100 text-orange-700 hover:bg-orange-200', on: 'bg-orange-500 text-white' },
+  { value: 2, label: '2',  idle: 'bg-amber-100 text-amber-700 hover:bg-amber-200',    on: 'bg-amber-500 text-white' },
+  { value: 3, label: '3',  idle: 'bg-lime-100 text-lime-700 hover:bg-lime-200',       on: 'bg-lime-600 text-white' },
+  { value: 4, label: '+4', idle: 'bg-green-100 text-green-700 hover:bg-green-200',    on: 'bg-green-600 text-white' },
 ]
 
 export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise, workoutId, lang = 'he' }: Props) {
   const englishName = lang === 'en' ? exercise.name_en?.trim() : ''
+  const accent = CATEGORY_ACCENT[exercise.category ?? ''] ?? '#d1d5db'
   const numSets = Math.max(exercise.default_sets, 1)
 
   const [lines, setLines] = useState<SetLine[]>(
@@ -163,7 +175,11 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
             separated by a hairline, with clear space between sets. */}
         <div className="space-y-4 mb-6">
           {lines.map((line, i) => (
-            <div key={i} className="bg-gray-50 rounded-2xl px-4 py-3">
+            <div
+              key={i}
+              className="bg-gray-50 rounded-2xl px-4 py-3"
+              style={{ borderInlineStart: `3px solid ${accent}` }}
+            >
               <div className="flex items-center gap-2">
               <span className="text-gray-400 text-xs font-bold w-8 shrink-0 text-right">
                 סט {i + 1}
@@ -175,7 +191,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                   onClick={() => updateLine(i, 'reps', Math.max(1, line.reps - 1))}
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
                 >−</button>
-                <span className="text-gray-800 font-bold w-8 text-center tabular-nums">{line.reps}</span>
+                <span className="text-gray-800 font-extrabold text-[17px] w-[34px] text-center tabular-nums">{line.reps}</span>
                 <button
                   onClick={() => updateLine(i, 'reps', line.reps + 1)}
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
@@ -189,7 +205,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                   onClick={() => updateLine(i, 'weight', Math.max(0, line.weight - 1))}
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
                 >−</button>
-                <span className="text-gray-800 font-bold w-10 text-center tabular-nums">{line.weight}</span>
+                <span className="text-gray-800 font-extrabold text-[17px] w-10 text-center tabular-nums">{line.weight}</span>
                 <button
                   onClick={() => updateLine(i, 'weight', line.weight + 1)}
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
@@ -206,10 +222,10 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                     <button
                       key={opt.value}
                       onClick={() => updateLine(i, 'rir', line.rir === opt.value ? null : opt.value)}
-                      className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors ${
+                      className={`flex-1 h-8 rounded-lg text-xs font-bold transition-all ${
                         line.rir === opt.value
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+                          ? `${opt.on} ring-2 ring-offset-2 ring-offset-gray-50 ring-gray-300`
+                          : `${opt.idle} ${line.rir !== null ? 'opacity-45' : ''}`
                       }`}
                     >
                       {opt.label}
