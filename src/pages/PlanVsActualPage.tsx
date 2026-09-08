@@ -185,16 +185,22 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
     const links: Record<string, string[]> = {}
     const assignOf: Record<string, Map<string, string | null>> = {}
     const workoutsOf: Record<string, string[]> = {}
+    const allOf: Record<string, Set<string>> = {}   // required + optional
 
     if (plans.length > 0) {
       const ids = plans.map(p => p.id)
       const [{ data: linkRows }, { data: woRows }] = await Promise.all([
         supabase.from('workout_plan_exercises')
-          .select('plan_id, exercise_id, workout_id').in('plan_id', ids),
+          .select('plan_id, exercise_id, workout_id, is_optional').in('plan_id', ids),
         supabase.from('plan_workouts').select('id, plan_id').in('plan_id', ids),
       ])
+      // Two sets on purpose. "Planned" counts only required exercises, so a week
+      // where every required one is done reads 100%. "Actual" counts everything
+      // in the plan, so doing an optional on top pushes it above 100%.
       for (const r of linkRows ?? []) {
-        (links[r.plan_id] ??= []).push(r.exercise_id)
+        (allOf[r.plan_id] ??= new Set()).add(r.exercise_id)
+        if (r.is_optional) continue
+        ;(links[r.plan_id] ??= []).push(r.exercise_id)
         ;(assignOf[r.plan_id] ??= new Map()).set(r.exercise_id, r.workout_id ?? null)
       }
       for (const w of woRows ?? []) (workoutsOf[w.plan_id] ??= []).push(w.id)
@@ -239,8 +245,8 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
       const plan = plans.find(p =>
         p.start_date <= s && (p.end_date === null || p.end_date >= s)) ?? null
 
-      const planExIds = plan ? links[plan.id] ?? [] : []
-      const planSet   = new Set(planExIds)
+      const planExIds = plan ? links[plan.id] ?? [] : []          // required only
+      const planSet   = plan ? allOf[plan.id] ?? new Set<string>() : new Set<string>()
 
       const planWorkoutIds = plan ? workoutsOf[plan.id] ?? [] : []
       const assign = plan ? assignOf[plan.id] ?? new Map<string, string | null>() : new Map<string, string | null>()
@@ -255,7 +261,8 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
         planned.intensity += e.default_sets * e.default_reps * e.default_weight * factor
       }
 
-      // Only plan exercises count, so both sides measure the same thing
+      // Anything in the plan counts toward actual, optional included — that is
+      // what lets a week with extra work read above 100%.
       const weekLogs = (logsByWeek[s] ?? []).filter(l => planSet.has(l.exercise_id))
       const actual = { workouts: 0, ex: 0, sets: 0, reps: 0, intensity: 0 }
       const seen = new Set<string>()
@@ -360,6 +367,13 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
                 >
                   שבוע
                 </th>
+                {/* Headline first — the number you scan for sits beside the week */}
+                <th
+                  className="bg-gray-50 border-b border-l border-gray-200 px-1 py-2 text-gray-500 text-xs font-bold"
+                  style={{ width: W.total, minWidth: W.total }}
+                >
+                  ביצוע
+                </th>
                 {['אימונים', 'תרגילים', 'סטים', 'חזרות', 'עצימות'].map(h => (
                   <th
                     key={h}
@@ -369,12 +383,6 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
                     {h}
                   </th>
                 ))}
-                <th
-                  className="bg-gray-50 border-b border-gray-200 px-1 py-2 text-gray-500 text-xs font-bold"
-                  style={{ width: W.total, minWidth: W.total }}
-                >
-                  ביצוע
-                </th>
               </tr>
             </thead>
 
@@ -396,6 +404,15 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
                       <span className="block text-gray-800 text-xs font-bold">{shortDate(r.sunday)}</span>
                       <span className="block text-gray-400 text-[10px]">שבוע {r.weekNo}</span>
                     </th>
+
+                    <td
+                      className="bg-white border-b border-l border-gray-200 px-1 py-2 text-center"
+                      style={{ width: W.total, minWidth: W.total }}
+                    >
+                      <span className={`text-base font-bold tabular-nums ${pctClass(r.overall)}`}>
+                        {r.overall === null ? '—' : `${r.overall}%`}
+                      </span>
+                    </td>
 
                     {cells.map(([a, p], i) => {
                       const cp = pct(a, p)
@@ -423,15 +440,6 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
                         </td>
                       )
                     })}
-
-                    <td
-                      className="bg-white border-b border-gray-200 px-1 py-2 text-center"
-                      style={{ width: W.total, minWidth: W.total }}
-                    >
-                      <span className={`text-base font-bold tabular-nums ${pctClass(r.overall)}`}>
-                        {r.overall === null ? '—' : `${r.overall}%`}
-                      </span>
-                    </td>
                   </tr>
                 )
               })}
@@ -445,7 +453,8 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
           { title: 'מה הדוח מראה', body: 'לכל שבוע: כמה תרגילים, סטים, חזרות ועצימות תוכננו מול מה שבוצע בפועל.' },
           { title: 'מהו "מתוכנן"', body: 'התוכנית קובעת אילו תרגילים לבצע, ולכל תרגיל יש ברירות מחדל של סטים, חזרות ומשקל. המתוכנן לשבוע = ביצוע כל תרגיל בתוכנית פעם אחת לפי ברירות המחדל שלו.' },
           { title: 'איזו תוכנית נספרת', body: 'התוכנית שהייתה בתוקף ביום ראשון של אותו שבוע קובעת עבור כל השבוע.' },
-          { title: 'מה נספר בפועל', body: 'רק תרגילים שנמצאים באותה תוכנית, כדי ששני הצדדים ימדדו את אותו דבר.' },
+          { title: 'תרגילי רשות', body: 'תרגיל המסומן Opt אינו נספר במתוכנן — שבוע שבו בוצעו כל תרגילי החובה הוא 100%. אם בנוסף בוצעו תרגילי רשות, האחוז יעלה מעל 100%.' },
+          { title: 'מה נספר בפועל', body: 'כל התרגילים שבתוכנית, כולל תרגילי רשות. תרגיל שאינו בתוכנית אינו נספר.' },
           { title: 'עמודת אימונים', body: 'כמה אימונים מהתוכנית הושלמו באותו שבוע. אימון נחשב כבוצע כאשר לפחות מחצית מהתרגילים שבו נרשמו. בתוכנית ללא חלוקה לאימונים העמודה ריקה.' },
           { title: 'אחוז הביצוע', body: 'ממוצע של ארבעת האחוזים — תרגילים, סטים, חזרות ועצימות. עמודת האימונים אינה נכללת בחישוב. מעל 100% אפשרי כאשר בוצע יותר מהמתוכנן.' },
           { title: 'תצוגת גרף', body: 'מתג "טבלה / גרף" בכותרת מציג את אחוז הביצוע הכולל כקו לאורך 12 השבועות האחרונים, עם קו מקווקו ב-100%. שבוע ללא תוכנית מופיע כפער בקו.' },
