@@ -29,8 +29,13 @@ export default function DailySummary({ exercises, logs, selectedDate, isToday, o
     return (ex?.is_bilateral || ex?.double_weight) ? 2 : 1
   }
 
-  const totalSets = activeLogs.reduce((sum, l) => sum + l.sets_completed * factor(l.exercise_id), 0)
-  const totalReps = activeLogs.reduce((sum, l) => sum + l.sets_completed * l.reps_completed * factor(l.exercise_id), 0)
+  // A time-based exercise logs seconds in the reps field, so it would add its
+  // hold duration to the rep count. It still counts towards תרגילים above —
+  // whether you did the plank is a plain yes/no, unaffected by the unit.
+  const volumeLogs = activeLogs.filter(l => !exerciseMap.get(l.exercise_id)?.is_time_based)
+
+  const totalSets = volumeLogs.reduce((sum, l) => sum + l.sets_completed * factor(l.exercise_id), 0)
+  const totalReps = volumeLogs.reduce((sum, l) => sum + l.sets_completed * l.reps_completed * factor(l.exercise_id), 0)
 
   const dateLabel = selectedDate.toLocaleDateString('he-IL', {
     weekday: 'long',

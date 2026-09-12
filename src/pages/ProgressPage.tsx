@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { fetchAllRows } from '../lib/fetchAllRows'
+import { fetchTimeBasedIds } from '../lib/timeBasedIds'
 import HelpModal from '../components/HelpModal'
 
 interface Props {
@@ -54,10 +55,10 @@ export default function ProgressPage({ userId, onClose }: Props) {
         .range(f, t))
 
       // Fetch user exercises (name + category)
-      const { data: exData } = await supabase
-        .from('exercises_user')
-        .select('id, name_he, category')
-        .eq('user_id', userId)
+      const [{ data: exData }, timeBased] = await Promise.all([
+        supabase.from('exercises_user').select('id, name_he, category').eq('user_id', userId),
+        fetchTimeBasedIds(userId),
+      ])
 
       if (!exData) { setLoading(false); return }
 
@@ -67,6 +68,9 @@ export default function ProgressPage({ userId, onClose }: Props) {
       const exWithLogs = new Set<string>()
 
       for (const log of logs) {
+        // Seconds, not reps — excluded here, so the exercise also drops out of
+        // exWithLogs and never appears as an all-blank row.
+        if (timeBased.has(log.exercise_id)) continue
         const date = log.logged_at.slice(0, 10)   // YYYY-MM-DD
         dateSet.add(date)
         exWithLogs.add(log.exercise_id)

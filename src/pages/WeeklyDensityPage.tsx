@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { loadChart, valueLabels, AXIS, GRID, type ChartType } from '../lib/loadChart'
 import { supabase } from '../lib/supabase'
 import { fetchAllRows } from '../lib/fetchAllRows'
+import { fetchTimeBasedIds } from '../lib/timeBasedIds'
 import HelpModal from '../components/HelpModal'
 
 interface Props {
@@ -121,10 +122,10 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
         .order('logged_at')
         .range(f, t))
 
-      const { data: exData } = await supabase
-        .from('exercises_user')
-        .select('id, category')
-        .eq('user_id', userId)
+      const [{ data: exData }, timeBased] = await Promise.all([
+        supabase.from('exercises_user').select('id, category').eq('user_id', userId),
+        fetchTimeBasedIds(userId),
+      ])
 
       if (!exData) { setLoading(false); return }
 
@@ -135,6 +136,7 @@ export default function WeeklyDensityPage({ userId, onClose }: Props) {
       const weekSet = new Set<string>()
 
       for (const log of logs) {
+        if (timeBased.has(log.exercise_id)) continue   // seconds, not reps
         const week = getSunday(log.logged_at.slice(0, 10))
         const cat  = exCat[log.exercise_id] ?? ''
         if (!CATEGORY_ORDER.includes(cat)) continue

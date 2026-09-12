@@ -255,6 +255,11 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
       for (const id of planExIds) {
         const e = exMap.get(id)
         if (!e) continue
+        // Time-based exercises are held for seconds, so their default_reps is a
+        // duration. They stay in planned.ex above — the plank is still required
+        // — but are kept out of the סטים/חזרות/עצימות targets, matching the same
+        // exclusion on the actual side so the comparison stays like for like.
+        if (e.is_time_based) continue
         const factor = (e.is_bilateral || e.double_weight) ? 2 : 1
         planned.sets      += e.default_sets
         planned.reps      += e.default_sets * e.default_reps
@@ -267,7 +272,8 @@ export default function PlanVsActualPage({ userId, onClose }: Props) {
       const actual = { workouts: 0, ex: 0, sets: 0, reps: 0, intensity: 0 }
       const seen = new Set<string>()
       for (const l of weekLogs) {
-        seen.add(l.exercise_id)
+        seen.add(l.exercise_id)   // before the skip: it drives ex + workouts
+        if (exMap.get(l.exercise_id)?.is_time_based) continue
         const sets = l.sets_completed ?? 1
         actual.sets      += sets
         actual.reps      += sets * (l.reps_completed ?? 0)

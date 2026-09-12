@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { fetchAllRows } from '../lib/fetchAllRows'
+import { fetchTimeBasedIds } from '../lib/timeBasedIds'
 import HelpModal from '../components/HelpModal'
 import type { Profile } from '../types/database'
 
@@ -86,10 +87,10 @@ export default function AdminDensityPage({ onClose }: Props) {
       .order('logged_at')
       .range(f, t))
 
-    const { data: exData } = await supabase
-      .from('exercises_user')
-      .select('id, category, user_id')
-      .in('user_id', ids)
+    const [{ data: exData }, timeBased] = await Promise.all([
+      supabase.from('exercises_user').select('id, category, user_id').in('user_id', ids),
+      fetchTimeBasedIds(ids),
+    ])
 
     if (!exData) { setLoading(false); return }
 
@@ -109,6 +110,7 @@ export default function AdminDensityPage({ onClose }: Props) {
       const dateSet = new Set<string>()
 
       for (const log of userLogs) {
+        if (timeBased.has(log.exercise_id)) continue   // seconds, not reps
         const date = log.logged_at.slice(0, 10)
         const cat  = exCategory[log.exercise_id] ?? ''
         if (!CATEGORY_ORDER.includes(cat)) continue

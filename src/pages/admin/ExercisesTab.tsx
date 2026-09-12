@@ -23,6 +23,7 @@ const EMPTY: Omit<ExerciseGlobal, 'id' | 'created_at'> = {
   default_weight: 0,
   is_bilateral: false,
   double_weight: false,
+  is_time_based: false,
   notes: null,
   category: CATEGORIES[0],
   sort_order: 999,
