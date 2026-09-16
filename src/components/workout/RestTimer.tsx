@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 
 const STORAGE_KEY     = 'rest-timer-seconds'
@@ -39,12 +39,6 @@ function getEndAt(): number | null {
     return null
   }
   return endAt
-}
-
-function getSecondsLeft(): number | null {
-  const endAt = getEndAt()
-  if (endAt === null) return null
-  return Math.max(1, Math.round((endAt - Date.now()) / 1000))
 }
 
 async function requestNotificationPermission() {
@@ -108,53 +102,92 @@ async function cancelScheduledNotification() {
   }
 }
 
+// ── Shared store ────────────────────────────────────────────────────────────
+// There are two of these on screen: the bar under the header and the one inside
+// the log sheet. They are one timer, not two, so the state lives here rather
+// than in component state — otherwise starting it in the sheet would leave the
+// header showing idle, and closing the sheet would look like the timer was lost.
+// Only duration and endAt are stored; each instance derives the countdown from
+// endAt, so they cannot disagree about what is left.
+type TimerState = { duration: number; endAt: number | null }
+
+let store: TimerState = {
+  duration: 0,          // replaced on first mount from localStorage
+  endAt:    null,
+}
+let initialised = false
+const listeners = new Set<() => void>()
+
+function emit() { for (const fn of listeners) fn() }
+
+function setStore(next: Partial<TimerState>) {
+  store = { ...store, ...next }
+  emit()
+}
+
+function subscribe(fn: () => void) {
+  listeners.add(fn)
+  return () => { listeners.delete(fn) }
+}
+
+/** Ends the rest period. Guarded so that with two instances ticking, only the
+ *  first one through beeps and clears. */
+function finish() {
+  if (store.endAt === null) return
+  localStorage.removeItem(STORAGE_END_KEY)
+  setStore({ endAt: null })
+  playBeep()
+}
+
 /** rightSlot renders at the start of the bar — the right side in RTL — while the
- *  timer controls sit at the opposite end. */
-export default function RestTimer({ defaultSeconds, rightSlot }: {
+ *  timer controls sit at the opposite end.
+ *  compact trims the bar for the log sheet, where vertical space is scarce. */
+export default function RestTimer({ defaultSeconds, rightSlot, compact = false }: {
   defaultSeconds: number
   rightSlot?: ReactNode
+  compact?: boolean
 }) {
-  const [duration, setDuration] = useState<number>(() => {
+  if (!initialised) {
     const saved = localStorage.getItem(STORAGE_KEY)
-    return saved ? parseInt(saved, 10) : defaultSeconds
-  })
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
-  const [running, setRunning]         = useState(false)
+    store = {
+      duration: saved ? parseInt(saved, 10) : defaultSeconds,
+      endAt:    getEndAt(),
+    }
+    initialised = true
+  }
+
+  const snapshot = useSyncExternalStore(subscribe, () => store)
+  const { duration } = snapshot
+  const running = snapshot.endAt !== null
+
+  // Re-render once a second while counting down. Both instances run their own
+  // interval but read the same endAt, so they display the same number.
+  const [, force] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const secondsLeft = store.endAt === null
+    ? null
+    : Math.max(0, Math.round((store.endAt - Date.now()) / 1000))
 
   // Persist duration
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, String(duration))
   }, [duration])
 
-  // Restore timer state on mount (handles navigation away and back)
+  // Re-arm the OS notification on mount in case it was lost
   useEffect(() => {
-    const endAt = getEndAt()
-    const left  = getSecondsLeft()
-    if (endAt !== null && left !== null) {
-      setSecondsLeft(left)
-      setRunning(true)
-      // Re-arm the OS notification in case it was lost
-      scheduleNotification(endAt)
-    }
-  }, []) // runs only on mount
+    if (store.endAt !== null) scheduleNotification(store.endAt)
+  }, [])
 
   // Countdown tick
   useEffect(() => {
     if (running) {
       intervalRef.current = setInterval(() => {
-        setSecondsLeft(prev => {
-          if (prev === null || prev <= 1) {
-            setRunning(false)
-            localStorage.removeItem(STORAGE_END_KEY)
-            playBeep()
-            return null
-          }
-          return prev - 1
-        })
+        if (store.endAt !== null && store.endAt - Date.now() <= 0) finish()
+        else force(n => n + 1)
       }, 1000)
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current)
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [running])
@@ -163,25 +196,18 @@ export default function RestTimer({ defaultSeconds, rightSlot }: {
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState !== 'visible') return
-      const left = getSecondsLeft()
-      if (left === null && running) {
-        setRunning(false)
-        setSecondsLeft(null)
-        playBeep()
-      } else if (left !== null) {
-        setSecondsLeft(left)
-      }
+      if (store.endAt !== null && store.endAt - Date.now() <= 0) finish()
+      else force(n => n + 1)
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [running])
+  }, [])
 
   function start() {
     requestNotificationPermission().then(() => {
       const endAt = Date.now() + duration * 1000
       localStorage.setItem(STORAGE_END_KEY, String(endAt))
-      setSecondsLeft(duration)
-      setRunning(true)
+      setStore({ endAt })
       scheduleNotification(endAt)
     })
   }
@@ -189,20 +215,19 @@ export default function RestTimer({ defaultSeconds, rightSlot }: {
   function stop() {
     localStorage.removeItem(STORAGE_END_KEY)
     cancelScheduledNotification()
-    setRunning(false)
-    setSecondsLeft(null)
+    setStore({ endAt: null })
   }
 
   function adjust(delta: number) {
-    setDuration(d => Math.min(MAX_SECS, Math.max(MIN_SECS, d + delta)))
+    setStore({ duration: Math.min(MAX_SECS, Math.max(MIN_SECS, duration + delta)) })
   }
 
   if (running) {
     return (
-      <div className="flex items-center justify-between gap-3 bg-orange-500 px-3 py-2">
+      <div className={`flex items-center justify-between gap-3 bg-orange-500 px-3 ${compact ? 'py-1.5 rounded-2xl' : 'py-2'}`}>
         {rightSlot ?? <span />}
         <div className="flex items-center gap-3">
-          <span className="text-white font-bold text-lg tabular-nums">
+          <span className={`text-white font-bold tabular-nums ${compact ? 'text-base' : 'text-lg'}`}>
             {fmt(secondsLeft ?? 0)}
           </span>
           <button
@@ -217,20 +242,26 @@ export default function RestTimer({ defaultSeconds, rightSlot }: {
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 bg-gray-50 border-b border-gray-200 px-3 py-2">
+    <div className={`flex items-center justify-between gap-2 px-3 ${
+      compact ? 'py-1.5 bg-gray-100 rounded-2xl' : 'py-2 bg-gray-50 border-b border-gray-200'
+    }`}>
       {rightSlot ?? <span />}
       <div className="flex items-center gap-2">
       <button
         onClick={() => adjust(-STEP)}
         disabled={duration <= MIN_SECS}
-        className="w-7 h-7 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-30 text-gray-700 font-bold text-base leading-none flex items-center justify-center"
+        className={`rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-30 text-gray-700 font-bold text-base leading-none flex items-center justify-center ${
+          compact ? 'w-6 h-6' : 'w-7 h-7'
+        }`}
       >
         −
       </button>
 
       <button
         onClick={start}
-        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold tabular-nums"
+        className={`flex items-center gap-1.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white font-bold tabular-nums ${
+          compact ? 'px-3 py-1 text-xs' : 'px-4 py-1.5 text-sm'
+        }`}
       >
         <span>⏱</span>
         <span>{fmt(duration)}</span>
@@ -239,7 +270,9 @@ export default function RestTimer({ defaultSeconds, rightSlot }: {
       <button
         onClick={() => adjust(STEP)}
         disabled={duration >= MAX_SECS}
-        className="w-7 h-7 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-30 text-gray-700 font-bold text-base leading-none flex items-center justify-center"
+        className={`rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-30 text-gray-700 font-bold text-base leading-none flex items-center justify-center ${
+          compact ? 'w-6 h-6' : 'w-7 h-7'
+        }`}
       >
         +
       </button>

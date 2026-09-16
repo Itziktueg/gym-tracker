@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { ExerciseUser, WorkoutLog } from '../../types/database'
+import RestTimer from './RestTimer'
 
 interface Props {
   exercise: ExerciseUser
@@ -13,6 +14,7 @@ interface Props {
   onEditExercise: () => void
   workoutId: string | null
   lang?: 'he' | 'en'
+  restTimerSeconds: number
 }
 
 interface SetLine {
@@ -41,7 +43,7 @@ const RIR_OPTIONS = [
   { value: 4, label: '+4', idle: 'bg-green-100 text-green-700 hover:bg-green-200',    on: 'bg-green-600 text-white' },
 ]
 
-export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise, workoutId, lang = 'he' }: Props) {
+export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise, workoutId, lang = 'he', restTimerSeconds }: Props) {
   const englishName = lang === 'en' ? exercise.name_en?.trim() : ''
   const accent = CATEGORY_ACCENT[exercise.category ?? ''] ?? '#d1d5db'
   const numSets = Math.max(exercise.default_sets, 1)
@@ -153,10 +155,22 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                 href={exercise.video_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-500 w-9 h-10 flex items-center justify-center text-base"
+                className="w-8 h-8 ml-1 rounded-xl bg-green-500 hover:bg-green-600 active:bg-green-700 shadow-sm flex items-center justify-center transition-colors"
                 title="צפה בהדגמה"
+                aria-label="צפה בהדגמה"
               >
-                ▶
+                {/* Rounded-corner triangle: stroked as well as filled, which is
+                    what softens the points. Stays pointing right in RTL — the
+                    play glyph is read as a play button, not as a direction. */}
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" aria-hidden="true">
+                  <path
+                    d="M9 5.5 19 12 9 18.5Z"
+                    fill="white"
+                    stroke="white"
+                    strokeWidth="3"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </a>
             )}
             <button
@@ -174,6 +188,13 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
             {exercise.notes}
           </div>
         )}
+
+        {/* Logging set by set means this sheet is open through the whole rest
+            period, with the header timer behind it. Same timer, not a second
+            one — RestTimer shares its state across mounted instances. */}
+        <div className="mb-2">
+          <RestTimer defaultSeconds={restTimerSeconds} compact />
+        </div>
 
         </div>
 
