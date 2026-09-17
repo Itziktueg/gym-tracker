@@ -12,9 +12,14 @@ set in the Vercel project, none of them prefixed `VITE_` — Vite exposes only
 
 | Variable | Purpose |
 |---|---|
-| `ANTHROPIC_API_KEY` | Claude API key. Never commit it; never expose it to the client. |
-| `SUPABASE_URL` | Same URL as `VITE_SUPABASE_URL`. |
-| `SUPABASE_ANON_KEY` | Same anon key as `VITE_SUPABASE_ANON_KEY`. |
+| `ANTHROPIC_API_KEY` | Claude API key. Never commit it; never expose it to the client. The only one that must be added by hand. |
+| `SUPABASE_URL` | Optional — falls back to the existing `VITE_SUPABASE_URL`. |
+| `SUPABASE_ANON_KEY` | Optional — falls back to the existing `VITE_SUPABASE_ANON_KEY`. |
+
+The `VITE_` prefix only controls what Vite inlines into the client bundle;
+Vercel passes every variable to serverless functions regardless. So the two
+Supabase variables the app already has serve the function too, and only the
+Anthropic key needs adding.
 
 The anon key is deliberate: the endpoint builds its Supabase client from the
 **caller's** access token so existing RLS scopes every query. The service role

@@ -62,8 +62,11 @@ export default async function handler(req: any, res: any) {
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+  // The VITE_ prefix only governs what Vite inlines into the client bundle —
+  // Vercel hands every variable to functions either way. Accepting the existing
+  // VITE_ names means the deploy needs no duplicated Supabase variables.
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY
 
   if (!apiKey || !supabaseUrl || !supabaseAnonKey) {
     // Named explicitly: a blank panel with no explanation is the worst failure
