@@ -69,9 +69,14 @@ export default async function handler(req: any, res: any) {
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY
 
   if (!apiKey || !supabaseUrl || !supabaseAnonKey) {
-    // Named explicitly: a blank panel with no explanation is the worst failure
-    // mode, and this one is a deploy-config mistake, not a user error.
-    res.status(500).json({ error: 'missing_server_config' })
+    // Names only, never values — saying which variable is absent turns a
+    // deploy-config mistake into a one-line diagnosis instead of a guess.
+    const missing = [
+      !apiKey && 'ANTHROPIC_API_KEY',
+      !supabaseUrl && 'SUPABASE_URL or VITE_SUPABASE_URL',
+      !supabaseAnonKey && 'SUPABASE_ANON_KEY or VITE_SUPABASE_ANON_KEY',
+    ].filter(Boolean)
+    res.status(500).json({ error: 'missing_server_config', missing })
     return
   }
 
