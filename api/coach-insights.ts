@@ -337,10 +337,34 @@ export default async function handler(req: any, res: any) {
       return
     }
 
+    // Stored so the report follows the user across devices instead of living
+    // in one browser. Written through the caller's token, so RLS decides whose
+    // row this is — user_id cannot be forged from the client.
+    const { data: saved, error: saveErr } = await supabase
+      .from('coach_insights')
+      .insert({
+        user_id:          userData.user.id,
+        text,
+        latest_logged_at: latestLoggedAt,
+        focus_label:      focusLabel,
+        model:            MODEL,
+      })
+      .select('id, generated_at')
+      .single()
+
+    if (saveErr) {
+      // The report is already paid for — hand it back rather than lose it, and
+      // let the client display it without a stored id.
+      console.error('coach-insights save failed', saveErr.message)
+    }
+
     res.status(200).json({
+      id:          saved?.id ?? null,
       text,
-      generatedAt: new Date().toISOString(),
+      generatedAt: saved?.generated_at ?? new Date().toISOString(),
       latestLoggedAt,
+      focusLabel,
+      saved:       !saveErr,
     })
   } catch (err) {
     const status = err instanceof Anthropic.APIError ? err.status : undefined

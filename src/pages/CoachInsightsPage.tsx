@@ -7,32 +7,14 @@ interface Props {
   onClose: () => void
 }
 
-interface Cached {
+interface Insight {
+  id: string
   text: string
-  generatedAt: string
-  /** Newest workout that existed when this was generated. The gate below
+  generated_at: string
+  /** Newest workout that existed when this was generated. The usage gate
    *  compares against it, so one report is earned per completed workout. */
-  latestLoggedAt: string
-}
-
-/** Phase 1 keeps no server state, so the cache and the usage gate both live
- *  here. Clearing site data or switching device resets them and allows one
- *  extra generation — accepted for a small, trusted user base. */
-const KEY = (userId: string) => `coach-insights:${userId}`
-
-function load(userId: string): Cached | null {
-  try {
-    const raw = localStorage.getItem(KEY(userId))
-    return raw ? JSON.parse(raw) as Cached : null
-  } catch {
-    return null
-  }
-}
-
-function save(userId: string, value: Cached) {
-  try {
-    localStorage.setItem(KEY(userId), JSON.stringify(value))
-  } catch { /* private mode, quota — the panel still works, just won't persist */ }
+  latest_logged_at: string
+  focus_label: string | null
 }
 
 const ERRORS: Record<string, string> = {
@@ -45,6 +27,7 @@ const ERRORS: Record<string, string> = {
   refused:               'לא ניתן היה להפיק תובנות מהנתונים האלה.',
   empty_response:        'לא התקבלה תשובה. נסה שוב.',
   ai_failed:             'השירות לא זמין כרגע. נסה שוב מאוחר יותר.',
+  load_failed:           'לא ניתן לטעון את הדוחות הקודמים.',
 }
 
 function fmtWhen(iso: string) {
@@ -53,33 +36,52 @@ function fmtWhen(iso: string) {
   })
 }
 
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+
 export default function CoachInsightsPage({ userId, onClose }: Props) {
-  const [cached, setCached]   = useState<Cached | null>(() => load(userId))
+  const [history, setHistory] = useState<Insight[] | null>(null)
+  const [openId, setOpenId]   = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
   /** Newest workout that exists right now. null until the check has run. */
   const [latest, setLatest]   = useState<string | null>(null)
 
-  // One row. Drives the button state before anything is spent; the endpoint
-  // re-checks independently, since this side can be edited.
+  const current = history?.[0] ?? null
+
+  // Reports live in the database now, so they follow the user across devices.
+  // The one-row logged_at query drives the button before anything is spent;
+  // the endpoint re-checks independently, since this side can be tampered with.
   useEffect(() => {
     let alive = true
-    supabase
-      .from('workout_logs')
-      .select('logged_at')
-      .eq('user_id', userId)
-      .order('logged_at', { ascending: false })
-      .limit(1)
-      .then(({ data }) => {
-        if (alive) setLatest(data?.[0]?.logged_at ?? '')
-      })
+    ;(async () => {
+      const [insights, logs] = await Promise.all([
+        supabase
+          .from('coach_insights')
+          .select('id, text, generated_at, latest_logged_at, focus_label')
+          .eq('user_id', userId)
+          .order('generated_at', { ascending: false })
+          .limit(20),
+        supabase
+          .from('workout_logs')
+          .select('logged_at')
+          .eq('user_id', userId)
+          .order('logged_at', { ascending: false })
+          .limit(1),
+      ])
+      if (!alive) return
+      if (insights.error) setError('load_failed')
+      setHistory((insights.data ?? []) as Insight[])
+      setLatest(logs.data?.[0]?.logged_at ?? '')
+    })()
     return () => { alive = false }
   }, [userId])
 
-  const hasNewActivity = latest === null
+  const hasNewActivity = latest === null || history === null
     ? false
-    : !cached || (latest !== '' && latest > cached.latestLoggedAt)
+    : !current || (latest !== '' && latest > current.latest_logged_at)
 
   const noLogsAtAll = latest === ''
 
@@ -97,7 +99,7 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
           'Content-Type':  'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ lastSeenLoggedAt: cached?.latestLoggedAt ?? null }),
+        body: JSON.stringify({ lastSeenLoggedAt: current?.latest_logged_at ?? null }),
       })
 
       const body = await res.json().catch(() => null)
@@ -108,20 +110,24 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
         return
       }
 
-      const next: Cached = {
-        text: body.text,
-        generatedAt: body.generatedAt,
-        latestLoggedAt: body.latestLoggedAt,
+      const next: Insight = {
+        id:               body.id ?? `local-${Date.now()}`,
+        text:             body.text,
+        generated_at:     body.generatedAt,
+        latest_logged_at: body.latestLoggedAt,
+        focus_label:      body.focusLabel ?? null,
       }
-      setCached(next)
-      save(userId, next)
+      setHistory(prev => [next, ...(prev ?? [])])
       setLatest(body.latestLoggedAt)
+      if (body.saved === false) setError('load_failed')
     } catch {
       setError('ai_failed')
     } finally {
       setLoading(false)
     }
   }
+
+  const previous = (history ?? []).slice(1)
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -135,16 +141,23 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
       </div>
 
       <div className="flex-1 p-4 space-y-3">
-        {cached && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="text-gray-400 text-xs mb-3">
-              הופק ב-{fmtWhen(cached.generatedAt)}
-            </p>
-            <Insights text={cached.text} />
+        {history === null && !error && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
+            <p className="text-gray-400 text-sm">טוען…</p>
           </div>
         )}
 
-        {!cached && !loading && !error && (
+        {current && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="text-gray-400 text-xs mb-3">
+              הופק ב-{fmtWhen(current.generated_at)}
+              {current.focus_label ? ` · ${current.focus_label}` : ''}
+            </p>
+            <Insights text={current.text} />
+          </div>
+        )}
+
+        {history !== null && !current && !loading && !error && (
           <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
             <p className="text-4xl mb-3">🧠</p>
             <p className="text-gray-700 font-bold text-sm mb-1">תובנות מהמאמן</p>
@@ -170,17 +183,43 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
 
         <button
           onClick={generate}
-          disabled={loading || noLogsAtAll || (!!cached && !hasNewActivity)}
+          disabled={loading || history === null || noLogsAtAll || (!!current && !hasNewActivity)}
           className="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-40 text-white font-bold rounded-2xl py-3 text-sm transition-colors"
         >
-          {loading ? '…' : cached ? 'הפק תובנות מחדש' : 'הפק תובנות'}
+          {loading ? '…' : current ? 'הפק תובנות מחדש' : 'הפק תובנות'}
         </button>
 
-        {cached && !hasNewActivity && !loading && (
+        {current && !hasNewActivity && !loading && (
           <p className="text-gray-400 text-xs text-center leading-relaxed">
             אין פעילות חדשה מאז הדוח האחרון.<br />
             נסה שוב אחרי האימון הבא.
           </p>
+        )}
+
+        {previous.length > 0 && (
+          <div className="pt-2">
+            <p className="text-gray-500 text-xs font-bold mb-2 px-1">דוחות קודמים</p>
+            <div className="space-y-2">
+              {previous.map(r => (
+                <div key={r.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                  <button
+                    onClick={() => setOpenId(openId === r.id ? null : r.id)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-right active:bg-gray-50"
+                  >
+                    <span className="text-gray-700 text-sm font-medium">
+                      {fmtDate(r.generated_at)}
+                    </span>
+                    <span className="text-gray-300 text-lg">{openId === r.id ? '−' : '+'}</span>
+                  </button>
+                  {openId === r.id && (
+                    <div className="px-4 pb-4 pt-1 border-t border-gray-100">
+                      <Insights text={r.text} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         <p className="text-gray-400 text-[11px] text-center leading-relaxed pt-1">
@@ -194,10 +233,11 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
           { title: 'מה זה', body: 'מאמן AI שקורא את האימונים שלך — סטים, חזרות, משקלים, RIR והערות — ונותן מבט לאחור ומבט קדימה.' },
           { title: 'על איזו תקופה', body: 'הדוח מתמקד באימונים שבוצעו מאז הדוח הקודם, כך שכל דוח עוסק במה שחדש. 4 השבועות האחרונים נשלחים כרקע בלבד, כדי לזהות מגמה — משקל שעולה, נתקע או יורד. בדוח הראשון המוקד הוא השבוע האחרון.' },
           { title: 'מתי אפשר להפיק', body: 'פעם אחת אחרי כל אימון. כל עוד לא נרשם אימון חדש מאז הדוח האחרון, הכפתור נעול — אין נתונים חדשים לנתח.' },
+          { title: 'היכן הדוחות נשמרים', body: 'הדוחות נשמרים בחשבון שלך, לא במכשיר, ולכן הם מופיעים בכל מכשיר שבו תתחבר — טלפון ומחשב כאחד. הדוחות הקודמים מופיעים בתחתית המסך ואפשר לפתוח אותם.' },
           { title: 'על מה זה מסתמך', body: 'הנתונים שלך בלבד: התוכנית הפעילה, התרגילים שביצעת, ה-RIR שסימנת, ההערות שכתבת, והנפח השבועי לפי שריר.' },
           { title: 'שיטת האימון', body: 'ההמלצות בנויות על RIR של בערך 2 ברוב הסטים, והתקדמות כפולה — קודם מעלים חזרות בתוך הטווח, ורק אחר כך משקל.' },
           { title: 'כאב', body: 'הערה שמתארת כאב מסומנת בנפרד, עם המלצה לפנות לאיש מקצוע. המאמן לעולם לא ימליץ להתאמן דרך כאב ולא יאבחן סיבה.' },
-          { title: 'פרטיות', body: 'הניתוח מתבצע על הנתונים שלך בלבד. משתמשים אחרים אינם נכללים ואינם נחשפים.' },
+          { title: 'פרטיות', body: 'הניתוח מתבצע על הנתונים שלך בלבד, והדוחות נשמרים תחת החשבון שלך. משתמשים אחרים אינם נכללים ואינם יכולים לראות אותם.' },
         ]} />
       )}
     </div>
