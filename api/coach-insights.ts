@@ -6,7 +6,7 @@ import {
   sundayOf,
   type MuscleLink,
   type VolumeLog,
-} from '../src/lib/muscleVolume'
+} from '../src/lib/muscleVolume.js'
 
 /** Phase 1: read-only. This endpoint performs no writes of any kind — it reads
  *  the caller's own training data, summarises it, and asks Claude to comment.

@@ -3,9 +3,12 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.tsbuildinfo",
     "target": "ES2022",
     "lib": ["ES2022"],
-    "module": "ESNext",
+    // NodeNext to match how Vercel typechecks functions. Under "bundler" the
+    // extensionless import below compiled locally and then failed the deploy
+    // with TS2835 — the local build must reproduce the deploy build.
+    "module": "NodeNext",
     "skipLibCheck": true,
-    "moduleResolution": "bundler",
+    "moduleResolution": "nodenext",
     "types": ["node"],
     "isolatedModules": true,
     "moduleDetection": "force",
