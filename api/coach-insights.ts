@@ -36,12 +36,15 @@ const SYSTEM_PROMPT = `אתה מאמן כושר אישי מנוסה שמלווה
 - לעולם אל תאבחן סיבה. אתה לא מאבחן.
 עייפות רגילה או RIR נמוך אינם כאב ואינם מצריכים את ההתייחסות הזו.
 
+על מה הדוח מדבר:
+הדוח עוסק בתקופת המוקד — האימונים האחרונים, מאז הדוח הקודם. נתוני ארבעת השבועות מופיעים כרקע בלבד, כדי שתוכל לומר אם משקל עולה, נתקע או יורד. אל תסכם מחדש את כל החודש: אם תרגיל לא בוצע בתקופת המוקד, אל תעסוק בו אלא אם הוא נעדר באופן שראוי לציין.
+
 מבנה התשובה — בדיוק שני חלקים:
 ## מבט לאחור
-פסקה קצרה: מה קרה בתקופה, מה בלט לטובה ומה לרעה.
+פסקה קצרה על תקופת המוקד: מה קרה באימונים האחרונים, מה בלט לטובה ומה לרעה. השווה לרקע רק כשזה מוסיף משהו — "שלישי ברציפות באותו משקל" או "עלייה ראשונה מזה שלושה שבועות".
 
 ## מבט קדימה
-המלצות ממוספרות וקונקרטיות לפעם הבאה.
+המלצות ממוספרות וקונקרטיות לאימונים הקרובים — מה לשנות בפעם הבאה, עם שמות תרגילים ומספרים.
 
 זה פאנל בתוך אפליקציה, לא דוח ארוך. תהיה תמציתי.`
 
@@ -161,38 +164,40 @@ export default async function handler(req: any, res: any) {
     last: string
     defaults: { sets: number; reps: number; weight: number }
   }
-  const agg: Record<string, Agg> = {}
-
-  for (const l of logRows) {
-    const ex = exMap.get(l.exercise_id)
-    if (!ex) continue
-    const date = l.logged_at.slice(0, 10)
-    const a = (agg[l.exercise_id] ??= {
-      name: ex.name_he,
-      category: ex.category,
-      timeBased: !!ex.is_time_based,
-      sets: 0,
-      days: new Set<string>(),
-      reps: [],
-      weights: [],
-      rirs: [],
-      notes: [],
-      last: date,
-      defaults: {
-        sets: ex.default_sets,
-        reps: ex.default_reps,
-        weight: ex.default_weight,
-      },
-    })
-    a.sets += l.sets_completed ?? 1
-    a.days.add(date)
-    if (l.reps_completed != null) a.reps.push(l.reps_completed)
-    if (l.weight != null) a.weights.push(l.weight)
-    if (l.rir != null) a.rirs.push(l.rir)
-    if (l.notes && !a.notes.some(n => n.date === date && n.text === l.notes)) {
-      a.notes.push({ date, text: l.notes })
+  function summarise(rows: LogRow[]) {
+    const agg: Record<string, Agg> = {}
+    for (const l of rows) {
+      const ex = exMap.get(l.exercise_id)
+      if (!ex) continue
+      const date = l.logged_at.slice(0, 10)
+      const a = (agg[l.exercise_id] ??= {
+        name: ex.name_he,
+        category: ex.category,
+        timeBased: !!ex.is_time_based,
+        sets: 0,
+        days: new Set<string>(),
+        reps: [],
+        weights: [],
+        rirs: [],
+        notes: [],
+        last: date,
+        defaults: {
+          sets: ex.default_sets,
+          reps: ex.default_reps,
+          weight: ex.default_weight,
+        },
+      })
+      a.sets += l.sets_completed ?? 1
+      a.days.add(date)
+      if (l.reps_completed != null) a.reps.push(l.reps_completed)
+      if (l.weight != null) a.weights.push(l.weight)
+      if (l.rir != null) a.rirs.push(l.rir)
+      if (l.notes && !a.notes.some(n => n.date === date && n.text === l.notes)) {
+        a.notes.push({ date, text: l.notes })
+      }
+      if (date > a.last) a.last = date
     }
-    if (date > a.last) a.last = date
+    return agg
   }
 
   const mean = (xs: number[]) =>
@@ -202,9 +207,12 @@ export default async function handler(req: any, res: any) {
       ? String(Math.min(...xs))
       : `${Math.min(...xs)}-${Math.max(...xs)}`) : null
 
-  const exerciseSummary = Object.values(agg)
-    .sort((a, b) => (a.category ?? '').localeCompare(b.category ?? '', 'he'))
-    .map(a => ({
+  const byCategory = (a: Agg, b: Agg) =>
+    (a.category ?? '').localeCompare(b.category ?? '', 'he')
+
+  /** Full detail — this is the period the report is actually about. */
+  const detail = (agg: Record<string, Agg>) =>
+    Object.values(agg).sort(byCategory).map(a => ({
       תרגיל: a.name,
       קטגוריה: a.category,
       ...(a.timeBased ? { מבוסס_זמן: true } : {}),
@@ -218,6 +226,37 @@ export default async function handler(req: any, res: any) {
       אימון_אחרון: a.last,
       הערות: a.notes.length ? a.notes : undefined,
     }))
+
+  /** Trend background only — no notes, no per-set detail. Enough to say whether
+   *  a weight is climbing or stuck, without competing for the model's attention
+   *  with the period being reported on. */
+  const background = (agg: Record<string, Agg>) =>
+    Object.values(agg).sort(byCategory).map(a => ({
+      תרגיל: a.name,
+      ימי_אימון: a.days.size,
+      סך_סטים: a.sets,
+      טווח_משקל: range(a.weights),
+      RIR_ממוצע: mean(a.rirs),
+    }))
+
+  // The report covers what has happened since the previous one. Falls back to
+  // the last 7 days on a first run, when there is no previous report to anchor to.
+  const weekAgo = new Date()
+  weekAgo.setDate(weekAgo.getDate() - 7)
+  const focusFrom = seenParam ?? weekAgo.toISOString()
+  let focusRows = logRows.filter(l => l.logged_at > focusFrom)
+  let focusLabel = seenParam ? 'האימונים מאז הדוח הקודם' : 'השבוע האחרון'
+
+  // A first report from someone who last trained more than a week ago would
+  // otherwise have an empty focus window. Fall back to their most recent day.
+  if (focusRows.length === 0) {
+    const lastDay = latestLoggedAt.slice(0, 10)
+    focusRows = logRows.filter(l => l.logged_at.slice(0, 10) === lastDay)
+    focusLabel = `האימון האחרון (${lastDay})`
+  }
+
+  const focusSummary = detail(summarise(focusRows))
+  const backgroundSummary = background(summarise(logRows))
 
   // ── Active plan structure
   let planSummary: unknown = null
@@ -258,10 +297,12 @@ export default async function handler(req: any, res: any) {
   }
 
   const context = {
-    תקופה: `${LOOKBACK_DAYS} הימים האחרונים`,
+    מוקד_הדוח: focusLabel,
     שבוע_נוכחי: sundayOf(new Date().toISOString().slice(0, 10)),
     תוכנית_פעילה: planSummary,
-    תרגילים: exerciseSummary,
+    תרגילים_בתקופת_המוקד: focusSummary,
+    רקע_4_שבועות: backgroundSummary,
+    הערה_על_הרקע: `רקע בלבד, ${LOOKBACK_DAYS} הימים האחרונים כולל תקופת המוקד. משמש להשוואת מגמה — האם משקל עולה, נתקע או יורד. הדוח עצמו עוסק בתקופת המוקד.`,
     נפח_שבועי_לפי_שריר: volumeSummary,
     הערה_על_נפח: 'סטים שבועיים. שריר ראשי = סט מלא, שריר משני = חצי סט. 10 סטים הוא מינימום אפקטיבי, 10-20 טווח מיטבי.',
   }

@@ -30,7 +30,7 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, 
         <HubCard
           icon="🧠"
           title="תובנות מאמן"
-          description="ניתוח AI של 4 השבועות האחרונים והמלצות להמשך"
+          description="ניתוח AI של האימונים האחרונים והמלצות להמשך"
           onClick={onCoach}
         />
         <HubCard
