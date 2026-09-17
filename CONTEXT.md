@@ -5,6 +5,24 @@
 - Supabase (auth + database)
 - Will deploy to Vercel later
 
+## Server environment variables (Vercel)
+`api/coach-insights.ts` is the only server-side code. It needs three variables
+set in the Vercel project, none of them prefixed `VITE_` — Vite exposes only
+`VITE_*` to the client bundle, so these stay server-side:
+
+| Variable | Purpose |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude API key. Never commit it; never expose it to the client. |
+| `SUPABASE_URL` | Same URL as `VITE_SUPABASE_URL`. |
+| `SUPABASE_ANON_KEY` | Same anon key as `VITE_SUPABASE_ANON_KEY`. |
+
+The anon key is deliberate: the endpoint builds its Supabase client from the
+**caller's** access token so existing RLS scopes every query. The service role
+key must never be used there — it would bypass RLS and turn a filter bug into a
+cross-user data leak.
+
+Without these the panel returns a clear Hebrew error rather than failing blank.
+
 ## Status
 - Database schema is ready in schema.sql
 - 6 tables: profiles, muscle_groups, exercises_global, exercises_user, exercise_muscle_groups, workout_logs

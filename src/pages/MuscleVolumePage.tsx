@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { loadChart, AXIS, GRID, type ChartType } from '../lib/loadChart'
 import HelpModal from '../components/HelpModal'
+import { buildExerciseMuscleMap, aggregateMuscleVolume } from '../lib/muscleVolume'
 
 interface Props {
   userId: string
@@ -29,20 +30,6 @@ const GROUPS: { name: string; dot: string; hex: string; muscles: string[] }[] = 
 /** MEV / top of MAV — the band the chart shades behind the bars. */
 const MEV = 10
 const MAV = 20
-
-function toISODate(d: Date) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function sundayOf(iso: string) {
-  const [y, m, d] = iso.split('-').map(Number)
-  const dt = new Date(y, m - 1, d)
-  dt.setDate(dt.getDate() - dt.getDay())
-  return toISODate(dt)
-}
 
 function shortDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
@@ -190,34 +177,12 @@ export default function MuscleVolumePage({ userId, onClose }: Props) {
 
     const muscleName = new Map((muscles ?? []).map(m => [m.id, m.name_he]))
 
-    // exercise -> [{ muscle, weight }]
-    const byExercise: Record<string, { muscle: string; w: number }[]> = {}
-    for (const r of mapRows ?? []) {
-      const name = muscleName.get(r.muscle_group_id)
-      if (!name) continue
-      ;(byExercise[r.exercise_id] ??= []).push({
-        muscle: name,
-        w: r.role === 'primary' ? 1 : 0.5,   // secondary counts half
-      })
-    }
-
-    const acc: Record<string, Record<string, number>> = {}
-    const weekSet = new Set<string>()
-
-    for (const l of logs) {
-      const links = byExercise[l.exercise_id]
-      if (!links) continue          // unmapped, e.g. cardio — deliberately skipped
-      const wk = sundayOf(l.logged_at.slice(0, 10))
-      weekSet.add(wk)
-      const sets = l.sets_completed ?? 1
-      for (const { muscle, w } of links) {
-        acc[muscle] ??= {}
-        acc[muscle][wk] = (acc[muscle][wk] ?? 0) + sets * w
-      }
-    }
+    // Shared with the AI coach endpoint so both describe balance identically
+    const byExercise = buildExerciseMuscleMap(mapRows ?? [], muscleName)
+    const { vol: acc, weeks: sorted } = aggregateMuscleVolume(logs, byExercise)
 
     setVol(acc)
-    setWeeks([...weekSet].sort().reverse())   // newest first
+    setWeeks([...sorted].reverse())   // newest first
     setLoading(false)
   }
 

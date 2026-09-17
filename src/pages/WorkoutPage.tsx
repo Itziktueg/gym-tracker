@@ -19,6 +19,7 @@ import ExerciseFrequencyPage from './ExerciseFrequencyPage'
 import PlanPage, { DAY_NAMES } from './PlanPage'
 import PlanVsActualPage from './PlanVsActualPage'
 import MuscleVolumePage from './MuscleVolumePage'
+import CoachInsightsPage from './CoachInsightsPage'
 import WorkoutNotesPage from './WorkoutNotesPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
 import UserGuidePage from './UserGuidePage'
@@ -79,6 +80,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [frequencyOpen, setFrequencyOpen] = useState(false)
   const [planVsActualOpen, setPlanVsActualOpen] = useState(false)
   const [muscleVolumeOpen, setMuscleVolumeOpen] = useState(false)
+  const [coachOpen, setCoachOpen] = useState(false)
   // Remembered per device. localStorage can throw in private mode, so guarded.
   const [lang, setLang] = useState<'he' | 'en'>(() => {
     try { return localStorage.getItem('exerciseLang') === 'en' ? 'en' : 'he' }
@@ -263,6 +265,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     if (frequencyOpen)          { history.pushState(null, ''); setFrequencyOpen(false); setReportsHubOpen(true); return }
     if (planVsActualOpen)       { history.pushState(null, ''); setPlanVsActualOpen(false); setReportsHubOpen(true); return }
     if (muscleVolumeOpen)       { history.pushState(null, ''); setMuscleVolumeOpen(false); setReportsHubOpen(true); return }
+    if (coachOpen)              { history.pushState(null, ''); setCoachOpen(false); setReportsHubOpen(true); return }
     if (notesOpen)              { history.pushState(null, ''); setNotesOpen(false); setReportsHubOpen(true); return }
     if (adminNotesOpen)         { history.pushState(null, ''); setAdminNotesOpen(false); setAdminHubOpen(true); return }
     if (densityOpen)            { history.pushState(null, ''); setDensityOpen(false); setReportsHubOpen(true); return }
@@ -463,6 +466,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         onPlanVsActual={() => { setReportsHubOpen(false); setPlanVsActualOpen(true) }}
         onMuscleVolume={() => { setReportsHubOpen(false); setMuscleVolumeOpen(true) }}
         onNotes={() => { setReportsHubOpen(false); setNotesOpen(true) }}
+        onCoach={() => { setReportsHubOpen(false); setCoachOpen(true) }}
       />
     )
   }
@@ -502,6 +506,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
   if (muscleVolumeOpen) {
     return <MuscleVolumePage userId={userId} onClose={() => { setMuscleVolumeOpen(false); setReportsHubOpen(true) }} />
+  }
+
+  if (coachOpen) {
+    return <CoachInsightsPage userId={userId} onClose={() => { setCoachOpen(false); setReportsHubOpen(true) }} />
   }
 
   if (notesOpen) {
@@ -775,6 +783,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           { title: 'תרגיל רשות', body: 'תגית "Opt" כתומה בפינה השמאלית-עליונה של התמונה מסמנת תרגיל רשות — כדאי אך לא חובה. הסימון נעשה בעריכת התוכנית.' },
           { title: 'תרגיל מבוסס זמן', body: 'תרגיל כמו פלאנק נמדד בשניות החזקה, שנרשמות בשדה החזרות. הוא נספר במונה התרגילים ובדוח "נפח לפי שריר", אך לא בסיכומי הסטים, החזרות והעצימות — שניות אינן נסכמות יחד עם חזרות. הרישום עצמו נשמר במלואו ומוצג בהיסטוריית האימונים.' },
           { title: 'טאבים של אימונים', body: 'אם התוכנית מחולקת לאימונים, שורת הטאבים מעל התרגילים מציגה כל אימון עם מונה ביצוע. הטאב שנפתח הוא האימון הבא בתור. "הכל" מציג את כל התוכנית לפי אימונים.' },
+          { title: 'תובנות מאמן', body: '📊 דוחות ← 🧠 תובנות מאמן. ניתוח AI של 4 השבועות האחרונים עם המלצות קונקרטיות להמשך, על בסיס ה-RIR וההערות שרשמת. ניתן להפיק פעם אחת אחרי כל אימון.' },
           { title: 'כפתורי ניווט', body: '⚙️ ניהול תרגילים ותוכנית · 📊 דוחות · 📖 מדריך · 🗓 הצגת השבוע' },
           { title: 'גרסה', body: `build ${__BUILD_ID__} · ${__BUILD_TIME__}` },
           ...( isAdmin ? [

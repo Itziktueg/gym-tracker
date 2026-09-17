@@ -1,6 +1,6 @@
 {
   "permissions": {
-    "defaultMode": "acceptEdits",
+    "defaultMode": "bypassPermissions",
     "allow": [
       "Read",
       "Glob",
@@ -8,7 +8,6 @@
       "Edit",
       "Write",
       "NotebookEdit",
-
       "Bash(npm run:*)",
       "Bash(npm install:*)",
       "Bash(npm ci:*)",
@@ -47,7 +46,6 @@
       "Bash(curl:*)",
       "Bash(pkill:*)",
       "Bash(kill:*)",
-
       "PowerShell(npm run:*)",
       "PowerShell(npm install:*)",
       "PowerShell(npm ci:*)",
@@ -67,7 +65,6 @@
       "PowerShell(git revert:*)",
       "PowerShell(Get-ChildItem:*)",
       "PowerShell(Test-Path:*)",
-
       "mcp__1e99cde3-2212-4cb5-8142-da67107e400d__execute_sql",
       "mcp__1e99cde3-2212-4cb5-8142-da67107e400d__list_projects",
       "mcp__1e99cde3-2212-4cb5-8142-da67107e400d__list_tables",
@@ -79,7 +76,6 @@
       "mcp__1e99cde3-2212-4cb5-8142-da67107e400d__generate_typescript_types",
       "mcp__1e99cde3-2212-4cb5-8142-da67107e400d__search_docs",
       "mcp__1e99cde3-2212-4cb5-8142-da67107e400d__query_logs",
-
       "mcp__Claude_Browser__navigate",
       "mcp__Claude_Browser__preview_start",
       "mcp__Claude_Browser__preview_list",
