@@ -56,6 +56,21 @@ interface LogRow {
 }
 
 export default async function handler(req: any, res: any) {
+  // TEMPORARY. Presence booleans only — never values — to settle which Vercel
+  // project this function is actually running in. Remove once the key is through.
+  if (req.method === 'GET' && req.query?.diag === '1') {
+    const has = (n: string) => Boolean(process.env[n])
+    res.status(200).json({
+      anthropicKeyPresent: has('ANTHROPIC_API_KEY'),
+      anthropicLikeNames: Object.keys(process.env).filter(k => /ANTHRO|CLAUDE/i.test(k)),
+      viteSupabaseUrl: has('VITE_SUPABASE_URL'),
+      // A StudioFlow marker: gym-tracker has no Google integration at all.
+      looksLikeStudioflow: has('VITE_GOOGLE_CLIENT_ID') || has('GOOGLE_CLIENT_SECRET'),
+      totalEnvCount: Object.keys(process.env).length,
+    })
+    return
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method not allowed' })
     return
