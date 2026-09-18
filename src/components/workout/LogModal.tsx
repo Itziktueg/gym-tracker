@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { ExerciseUser, WorkoutLog } from '../../types/database'
-import RestTimer from './RestTimer'
+import RestTimer, { useRestTimerState, stopRestTimer, formatRestTime } from './RestTimer'
 
 interface Props {
   exercise: ExerciseUser
@@ -64,6 +64,10 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
   const [undoing, setUndoing]           = useState(false)
   const [savingDefaults, setSavingDefaults] = useState(false)
   const [defaultsSaved, setDefaultsSaved]   = useState(false)
+
+  // Same timer as the one in the header — this sheet just draws it much larger
+  // while it runs, and hands the normal controls back when it finishes.
+  const { running: resting, secondsLeft } = useRestTimerState(restTimerSeconds)
 
   function updateLine(i: number, field: 'reps' | 'weight' | 'rir', value: number | null) {
     setLines(prev => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l))
@@ -191,17 +195,46 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
 
         {/* Logging set by set means this sheet is open through the whole rest
             period, with the header timer behind it. Same timer, not a second
-            one — RestTimer shares its state across mounted instances. */}
-        <div className="mb-2">
-          <RestTimer defaultSeconds={restTimerSeconds} compact />
-        </div>
+            one — RestTimer shares its state across mounted instances.
+            While it runs the controls are replaced by the large countdown
+            below, so the bar is not shown twice. */}
+        {!resting && (
+          <div className="mb-2">
+            <RestTimer defaultSeconds={restTimerSeconds} compact />
+          </div>
+        )}
 
         </div>
+
+        {/* While resting, the countdown takes over this whole region — readable
+            from across the gym without picking the phone up. It overlays rather
+            than resizes, so the sets underneath keep their positions and the
+            footer buttons stay reachable. It disappears by itself when the
+            countdown ends, since `resting` goes false. */}
+        {/* Explicit height, not flex-1: the hidden set list is what normally
+            gives the sheet its height, so a flex child with no content of its
+            own would collapse to nothing. */}
+        {resting && (
+          <div className="px-4 pb-2 shrink-0">
+            <div className="h-[45dvh] rounded-3xl bg-orange-500 flex flex-col items-center justify-center gap-3">
+              <p className="text-white/80 text-sm font-medium">זמן מנוחה</p>
+              <p className="text-white font-bold tabular-nums leading-none text-7xl">
+                {formatRestTime(secondsLeft ?? 0)}
+              </p>
+              <button
+                onClick={stopRestTimer}
+                className="mt-1 bg-white/20 hover:bg-white/30 active:bg-white/40 text-white font-bold rounded-2xl px-6 py-2.5 text-sm"
+              >
+                ■ עצור
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* One card per set: reps/weight and its RIR live inside the same box,
             separated by a hairline, with clear space between sets.
             min-h-0 is required or the flex child refuses to shrink and scroll. */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-1 space-y-4">
+        <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-1 space-y-4 ${resting ? 'hidden' : ''}`}>
           {lines.map((line, i) => (
             <div
               key={i}

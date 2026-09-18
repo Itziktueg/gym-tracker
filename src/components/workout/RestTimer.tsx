@@ -139,29 +139,27 @@ function finish() {
   playBeep()
 }
 
-/** rightSlot renders at the start of the bar — the right side in RTL — while the
- *  timer controls sit at the opposite end.
- *  compact trims the bar for the log sheet, where vertical space is scarce. */
-export default function RestTimer({ defaultSeconds, rightSlot, compact = false }: {
-  defaultSeconds: number
-  rightSlot?: ReactNode
-  compact?: boolean
-}) {
-  if (!initialised) {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    store = {
-      duration: saved ? parseInt(saved, 10) : defaultSeconds,
-      endAt:    getEndAt(),
-    }
-    initialised = true
+function ensureInitialised(defaultSeconds: number) {
+  if (initialised) return
+  const saved = localStorage.getItem(STORAGE_KEY)
+  store = {
+    duration: saved ? parseInt(saved, 10) : defaultSeconds,
+    endAt:    getEndAt(),
   }
+  initialised = true
+}
+
+/** The timer's live state, for anything that wants to render its own display
+ *  rather than the standard bar — the log sheet blows the countdown up to fill
+ *  the screen while resting. Shares the one store, so there is still one timer. */
+export function useRestTimerState(defaultSeconds = 60) {
+  ensureInitialised(defaultSeconds)
 
   const snapshot = useSyncExternalStore(subscribe, () => store)
-  const { duration } = snapshot
   const running = snapshot.endAt !== null
 
-  // Re-render once a second while counting down. Both instances run their own
-  // interval but read the same endAt, so they display the same number.
+  // Re-render once a second while counting down. Every consumer runs its own
+  // interval but reads the same endAt, so they cannot display different numbers.
   const [, force] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -169,17 +167,15 @@ export default function RestTimer({ defaultSeconds, rightSlot, compact = false }
     ? null
     : Math.max(0, Math.round((store.endAt - Date.now()) / 1000))
 
-  // Persist duration
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(duration))
-  }, [duration])
+    localStorage.setItem(STORAGE_KEY, String(snapshot.duration))
+  }, [snapshot.duration])
 
   // Re-arm the OS notification on mount in case it was lost
   useEffect(() => {
     if (store.endAt !== null) scheduleNotification(store.endAt)
   }, [])
 
-  // Countdown tick
   useEffect(() => {
     if (running) {
       intervalRef.current = setInterval(() => {
@@ -192,7 +188,7 @@ export default function RestTimer({ defaultSeconds, rightSlot, compact = false }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [running])
 
-  // Sync display when app comes back to foreground from another app
+  // Sync display when the app comes back to foreground from another app
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState !== 'visible') return
@@ -203,6 +199,27 @@ export default function RestTimer({ defaultSeconds, rightSlot, compact = false }
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
+  return { running, secondsLeft, duration: snapshot.duration }
+}
+
+export function stopRestTimer() {
+  localStorage.removeItem(STORAGE_END_KEY)
+  cancelScheduledNotification()
+  setStore({ endAt: null })
+}
+
+export { fmt as formatRestTime }
+
+/** rightSlot renders at the start of the bar — the right side in RTL — while the
+ *  timer controls sit at the opposite end.
+ *  compact trims the bar for the log sheet, where vertical space is scarce. */
+export default function RestTimer({ defaultSeconds, rightSlot, compact = false }: {
+  defaultSeconds: number
+  rightSlot?: ReactNode
+  compact?: boolean
+}) {
+  const { running, secondsLeft, duration } = useRestTimerState(defaultSeconds)
+
   function start() {
     requestNotificationPermission().then(() => {
       const endAt = Date.now() + duration * 1000
@@ -212,11 +229,7 @@ export default function RestTimer({ defaultSeconds, rightSlot, compact = false }
     })
   }
 
-  function stop() {
-    localStorage.removeItem(STORAGE_END_KEY)
-    cancelScheduledNotification()
-    setStore({ endAt: null })
-  }
+  const stop = stopRestTimer
 
   function adjust(delta: number) {
     setStore({ duration: Math.min(MAX_SECS, Math.max(MIN_SECS, duration + delta)) })
