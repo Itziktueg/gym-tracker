@@ -114,7 +114,7 @@ export default function ProgressPage({ userId, onClose }: Props) {
   let lastCategory = ''
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="h-dvh bg-gray-100 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
@@ -156,28 +156,9 @@ export default function ProgressPage({ userId, onClose }: Props) {
 
                 return (
                   <>
-                    {/* Dates sub-header row above each category */}
-                    {showCategoryHeader && (
-                      <tr key={`dates-${ex.category}`}>
-                        <td
-                          className="sticky right-0 z-20 bg-gray-700 border-b border-l border-gray-600 text-gray-400 text-xs font-medium px-2 py-1"
-                          style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
-                        >
-                          תרגיל
-                        </td>
-                        {dates.map(d => (
-                          <td
-                            key={d}
-                            className="bg-gray-700 border-b border-r border-gray-600 text-gray-300 text-xs font-medium px-1 py-1 text-center"
-                            style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
-                          >
-                            {formatDate(d)}
-                          </td>
-                        ))}
-                      </tr>
-                    )}
-
-                    {/* Category divider row */}
+                    {/* Category divider row. The dates were repeated here once
+                        per category, which duplicated the sticky header now that
+                        it genuinely stays put. */}
                     {showCategoryHeader && (
                       <tr key={`cat-${ex.category}`}>
                         <td

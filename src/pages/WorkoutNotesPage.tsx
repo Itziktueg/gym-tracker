@@ -84,7 +84,7 @@ export default function WorkoutNotesPage({ userId, onClose }: Props) {
   const shown = who ? rows.filter(r => r.userId === who) : rows
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col" dir="rtl">
+    <div className="h-dvh bg-gray-100 flex flex-col" dir="rtl">
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
         <h1 className="text-gray-800 font-bold text-lg">הערות אימון</h1>

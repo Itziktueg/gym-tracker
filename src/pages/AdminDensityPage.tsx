@@ -164,7 +164,7 @@ export default function AdminDensityPage({ onClose }: Props) {
   const allSelected = selected.size === users.length
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="h-dvh bg-gray-100 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm shrink-0">
         <button onClick={onClose} className="text-gray-500 text-sm font-medium">חזור</button>
