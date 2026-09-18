@@ -12,9 +12,10 @@ interface Props {
   onMuscleVolume: () => void
   onNotes: () => void
   onCoach: () => void
+  onExercisePerf: () => void
 }
 
-export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, onWeeklyDensity, onFrequency, onPlanVsActual, onMuscleVolume, onNotes, onCoach }: Props) {
+export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, onWeeklyDensity, onFrequency, onPlanVsActual, onMuscleVolume, onNotes, onCoach, onExercisePerf }: Props) {
   const [helpOpen, setHelpOpen] = useState(false)
 
   return (
@@ -38,6 +39,12 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, 
           title="היסטוריית אימונים"
           description="כל התרגילים שבוצעו — סטים, חזרות ומשקל"
           onClick={onHistory}
+        />
+        <HubCard
+          icon="🏋️"
+          title="ביצוע תרגילים"
+          description="ממוצע חזרות, משקל ו-RIR לכל תרגיל, שבוע אחר שבוע"
+          onClick={onExercisePerf}
         />
         <HubCard
           icon="📊"
@@ -87,6 +94,7 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, 
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
           { title: 'תובנות מאמן', body: 'מאמן AI שקורא את 4 השבועות האחרונים — סטים, RIR והערות — ונותן מבט לאחור והמלצות ממוספרות להמשך. ניתן להפיק פעם אחת אחרי כל אימון.' },
           { title: 'היסטוריית אימונים', body: 'סיכום כל התרגילים שבוצעו — מספר סטים, ממוצע חזרות ומשקל מקסימלי.' },
+          { title: 'ביצוע תרגילים', body: 'לכל תרגיל ושבוע — ממוצע חזרות, ממוצע משקל וממוצע RIR. מראה איך כל תרגיל מתקדם בפועל.' },
           { title: 'התקדמות עצימות', body: 'טבלת עצימות לפי תרגיל ותאריך — לזיהוי מגמות התקדמות.' },
           { title: 'עצימות יומית', body: 'עצימות לפי קבוצת שריר לכל יום אימון — לאיזון העומס בין האימונים.' },
           { title: 'עצימות שבועית', body: 'עצימות מצטברת לפי קבוצת שריר לכל שבוע — לזיהוי מגמות עומס לאורך זמן.' },
