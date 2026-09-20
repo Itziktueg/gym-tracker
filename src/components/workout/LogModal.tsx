@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { ExerciseUser, WorkoutLog } from '../../types/database'
 import RestTimer, { useRestTimerState, stopRestTimer, formatRestTime } from './RestTimer'
@@ -19,8 +19,38 @@ interface Props {
 
 interface SetLine {
   reps: number
-  weight: number
+  weight: number          // always kilograms — see the unit toggle below
   rir: number | null      // reps in reserve; null = not recorded
+}
+
+type Unit = 'kg' | 'lb'
+
+/** Gym machines here are mostly metric, but a few are plated in pounds. The
+ *  toggle changes what is shown and typed, never what is stored. */
+const LB_PER_KG = 2.20462
+const UNIT_KEY  = 'log-weight-unit'
+
+const toUnit   = (kg: number, u: Unit) => u === 'kg' ? kg : kg * LB_PER_KG
+const fromUnit = (v: number,  u: Unit) => u === 'kg' ? v  : v / LB_PER_KG
+const round1 = (n: number) => Math.round(n * 10) / 10
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+function loadUnit(): Unit {
+  try {
+    return localStorage.getItem(UNIT_KEY) === 'lb' ? 'lb' : 'kg'
+  } catch {
+    return 'kg'
+  }
+}
+
+function saveUnit(u: Unit) {
+  try { localStorage.setItem(UNIT_KEY, u) } catch { /* private mode */ }
+}
+
+/** Whole numbers where possible: "60.6" needs the decimal, "40" does not. */
+function fmtWeight(kg: number, u: Unit) {
+  const v = round1(toUnit(kg, u))
+  return v % 1 === 0 ? String(v) : v.toFixed(1)
 }
 
 /** Same muscle-group colours the tiles and reports use, so a set card is tied
@@ -69,8 +99,23 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
   // while it runs, and hands the normal controls back when it finishes.
   const { running: resting, secondsLeft } = useRestTimerState(restTimerSeconds)
 
+  // Display unit only. lines[].weight is always kilograms, because every log,
+  // default, intensity figure and report in the app is in kilograms — storing a
+  // mix would quietly corrupt years of history. Pounds are converted at the edge.
+  const [unit, setUnit] = useState<Unit>(loadUnit)
+  useEffect(() => { saveUnit(unit) }, [unit])
+
   function updateLine(i: number, field: 'reps' | 'weight' | 'rir', value: number | null) {
     setLines(prev => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l))
+  }
+
+  /** Steps in whole display units — 1 lb in pounds mode, 1 kg in kilos — and
+   *  converts back to kg for storage. Rounding the shown value first stops
+   *  repeated conversions drifting into 89.9999. */
+  function stepWeight(i: number, delta: number) {
+    const shown = round1(toUnit(lines[i].weight, unit))
+    const next  = Math.max(0, shown + delta)
+    updateLine(i, 'weight', round2(fromUnit(next, unit)))
   }
 
   // Defaults can only be saved when all sets are identical
@@ -260,18 +305,28 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                 <span className="text-gray-400 text-xs w-6">חז'</span>
               </div>
 
-              {/* Weight */}
+              {/* Weight — shown in the selected unit, stored in kg */}
               <div className="flex items-center gap-1 flex-1 justify-center">
                 <button
-                  onClick={() => updateLine(i, 'weight', Math.max(0, line.weight - 1))}
+                  onClick={() => stepWeight(i, -1)}
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
                 >−</button>
-                <span className="text-gray-800 font-extrabold text-[17px] w-10 text-center tabular-nums">{line.weight}</span>
+                <span className="text-gray-800 font-extrabold text-[17px] w-10 text-center tabular-nums">
+                  {fmtWeight(line.weight, unit)}
+                </span>
                 <button
-                  onClick={() => updateLine(i, 'weight', line.weight + 1)}
+                  onClick={() => stepWeight(i, 1)}
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
                 >+</button>
-                <span className="text-gray-400 text-xs w-6">ק"ג</span>
+                {/* The unit label is the toggle. It costs no extra row, and it
+                    is already where the eye is when setting a weight. */}
+                <button
+                  onClick={() => setUnit(u => u === 'kg' ? 'lb' : 'kg')}
+                  title={unit === 'kg' ? 'הצג בליברות' : 'הצג בקילוגרמים'}
+                  className="w-7 shrink-0 text-[10px] font-bold text-gray-500 bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded py-0.5 transition-colors"
+                >
+                  {unit === 'kg' ? 'ק"ג' : 'lb'}
+                </button>
               </div>
               </div>
 
