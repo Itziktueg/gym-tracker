@@ -47,9 +47,12 @@ function saveUnit(u: Unit) {
   try { localStorage.setItem(UNIT_KEY, u) } catch { /* private mode */ }
 }
 
-/** Whole numbers where possible: "60.6" needs the decimal, "40" does not. */
+/** Pounds show as whole numbers — machines are plated in whole pounds, and
+ *  "103.6" does not fit the box. Kilograms keep a decimal when they need one,
+ *  since half-plates are real (27.5). */
 function fmtWeight(kg: number, u: Unit) {
-  const v = round1(toUnit(kg, u))
+  if (u === 'lb') return String(Math.round(toUnit(kg, u)))
+  const v = round1(kg)
   return v % 1 === 0 ? String(v) : v.toFixed(1)
 }
 
@@ -304,7 +307,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                   onClick={() => updateLine(i, 'reps', line.reps + 1)}
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
                 >+</button>
-                <span className="text-gray-400 text-xs w-6">חז'</span>
+                <span className="text-gray-400 text-xs w-5 shrink-0">חז'</span>
               </div>
 
               {/* Weight — shown in the selected unit, stored in kg */}
@@ -313,7 +316,12 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                   onClick={() => stepWeight(i, -1)}
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
                 >−</button>
-                <span className="text-gray-800 font-extrabold text-[17px] w-10 text-center tabular-nums">
+                {/* Five characters ("100.5") do not fit at 17px in the width
+                    this row can spare, so long values step down a size rather
+                    than being clipped. */}
+                <span className={`text-gray-800 font-extrabold w-11 text-center tabular-nums ${
+                  fmtWeight(line.weight, unit).length >= 5 ? 'text-[13px]' : 'text-[17px]'
+                }`}>
                   {fmtWeight(line.weight, unit)}
                 </span>
                 <button
