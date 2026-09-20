@@ -173,13 +173,15 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/70"
       onClick={onClose}
     >
-      {/* Capped and split into three: only the set list scrolls, so the title
-          and the action buttons stay put however many sets there are. */}
+      {/* Full height, not a capped sheet: a long exercise note plus the header
+          left too little room for three set cards. Split into three regions so
+          only the set list scrolls — the title and the action buttons stay put
+          however many sets there are. */}
       <div
-        className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl max-h-[92dvh] flex flex-col"
+        className="w-full max-w-lg bg-white shadow-2xl h-dvh flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         <div className="px-6 pt-6 shrink-0">
@@ -369,23 +371,23 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           />
         </div>
 
-        {/* Confirm */}
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full font-bold rounded-2xl py-2.5 text-base bg-green-600 hover:bg-green-500 active:bg-green-700 text-white transition-colors disabled:opacity-50 mb-2"
-        >
-          {loading ? '...' : 'אשר ✓'}
-        </button>
+        {/* One row for every action. Each stacked button cost a whole line, and
+            a long exercise note was enough to push the third set card out of
+            view. אשר stays widest — it is the one you press every time. */}
+        <div className="flex gap-2 items-stretch">
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="flex-[1.4] font-bold rounded-2xl py-2.5 text-base bg-green-600 hover:bg-green-500 active:bg-green-700 text-white transition-colors disabled:opacity-50"
+          >
+            {loading ? '...' : 'אשר ✓'}
+          </button>
 
-        {/* Both secondaries share one row. Stacked, the undo button cost a whole
-            extra line and pushed the third set card out of the scroll area. */}
-        <div className="flex gap-2">
           <button
             onClick={handleUpdateDefaults}
             disabled={!allSame || savingDefaults}
             title={!allSame ? 'לא ניתן לשמור ברירות מחדל כאשר הסטים שונים זה מזה' : ''}
-            className="flex-1 font-bold rounded-2xl py-2 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200 transition-colors disabled:opacity-40"
+            className="flex-1 font-bold rounded-2xl px-1 py-2 text-xs leading-tight bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200 transition-colors disabled:opacity-40"
           >
             {savingDefaults ? '...' : defaultsSaved ? '✓ נשמר' : 'עדכן ברירות מחדל'}
           </button>
@@ -395,7 +397,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
             <button
               onClick={handleUndo}
               disabled={undoing}
-              className="flex-1 py-2 rounded-2xl bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 text-xs font-bold disabled:opacity-50"
+              className="flex-1 px-1 py-2 rounded-2xl bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 text-xs font-bold leading-tight disabled:opacity-50"
             >
               {undoing ? '...' : '↩ בטל ביצוע'}
             </button>
