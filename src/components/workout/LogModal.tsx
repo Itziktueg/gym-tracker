@@ -237,9 +237,16 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           </div>
         </div>
 
+        {/* Capped at four lines and scrolled beyond that. A long target-range
+            note is fixed chrome above the scroll area, so every extra line it
+            takes comes straight out of the set cards.
+            6.5em = 4 x leading-relaxed (1.625), so the cut lands on a line
+            boundary rather than slicing one in half. */}
         {exercise.notes && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2 mb-3 text-amber-800 text-sm leading-relaxed">
-            {exercise.notes}
+            <div className="max-h-[6.5em] overflow-y-auto overscroll-contain">
+              {exercise.notes}
+            </div>
           </div>
         )}
 
