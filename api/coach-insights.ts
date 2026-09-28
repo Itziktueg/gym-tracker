@@ -18,6 +18,11 @@ import {
  *  the per-user scoping, and a mistake in a filter here cannot leak another
  *  user's data — it simply returns nothing. */
 
+/** Vercel kills a function at its default limit (10s on Hobby) long before a
+ *  full report is written — adaptive thinking plus ~2k tokens of Hebrew takes
+ *  far longer than that, and the client only sees a generic failure. */
+export const maxDuration = 60
+
 const LOOKBACK_DAYS = 28
 const MODEL = 'claude-opus-5'
 const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
@@ -413,7 +418,10 @@ export default async function handler(req: any, res: any) {
     const anthropic = new Anthropic({ apiKey })
     const message = await anthropic.messages.parse({
       model: MODEL,
-      max_tokens: 4000,
+      // Hebrew is token-heavy and this report is long: three paragraphs plus a
+      // card per exercise. Truncating mid-JSON fails the parse outright, so the
+      // ceiling is set well above what the report should need.
+      max_tokens: 12000,
       system: SYSTEM_PROMPT,
       thinking: { type: 'adaptive' },
       output_config: {
@@ -472,7 +480,8 @@ export default async function handler(req: any, res: any) {
     })
   } catch (err) {
     const status = err instanceof Anthropic.APIError ? err.status : undefined
-    console.error('coach-insights failed', status, err instanceof Error ? err.message : err)
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('coach-insights failed', status, message)
     if (err instanceof Anthropic.AuthenticationError) {
       res.status(500).json({ error: 'bad_api_key' })
       return
@@ -481,6 +490,11 @@ export default async function handler(req: any, res: any) {
       res.status(429).json({ error: 'rate_limited' })
       return
     }
-    res.status(502).json({ error: 'ai_failed' })
+    // The generic message alone cost a round of guesswork. The detail carries
+    // no secret — API errors describe the request, never the key.
+    res.status(502).json({
+      error: 'ai_failed',
+      detail: `${err instanceof Error ? err.name : 'Error'}${status ? ` ${status}` : ''}: ${message.slice(0, 300)}`,
+    })
   }
 }

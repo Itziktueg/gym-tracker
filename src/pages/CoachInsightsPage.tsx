@@ -45,6 +45,7 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
   const [openId, setOpenId]   = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
+  const [errorDetail, setErrorDetail] = useState<string | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
   /** Newest workout that exists right now. null until the check has run. */
   const [latest, setLatest]   = useState<string | null>(null)
@@ -89,6 +90,7 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
     if (loading) return           // double-tap guard
     setLoading(true)
     setError(null)
+    setErrorDetail(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { setError('unauthenticated'); return }
@@ -102,10 +104,18 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
         body: JSON.stringify({ lastSeenLoggedAt: current?.latest_logged_at ?? null }),
       })
 
+      // A platform-level timeout kills the function before its own error
+      // handling runs, so the response is HTML rather than JSON. Reporting the
+      // status is the only way to tell that apart from an API failure.
       const body = await res.json().catch(() => null)
-      if (!body) { setError('ai_failed'); return }
+      if (!body) {
+        setError('ai_failed')
+        setErrorDetail(`HTTP ${res.status}${res.status === 504 ? ' — function timed out' : ''}`)
+        return
+      }
       if (body.error) {
         setError(body.error)
+        setErrorDetail(body.detail ?? null)
         if (body.latestLoggedAt) setLatest(body.latestLoggedAt)
         return
       }
@@ -178,6 +188,13 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
         {error && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-amber-800 text-sm leading-relaxed">
             {ERRORS[error] ?? ERRORS.ai_failed}
+            {/* The technical cause, for reporting a failure rather than
+                guessing at it. Deliberately quiet and secondary. */}
+            {errorDetail && (
+              <p dir="ltr" className="text-amber-600/70 text-[11px] mt-2 font-mono break-words text-left">
+                {errorDetail}
+              </p>
+            )}
           </div>
         )}
 
