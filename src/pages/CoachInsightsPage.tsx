@@ -231,6 +231,8 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
       {helpOpen && (
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
           { title: 'מה זה', body: 'מאמן AI שקורא את האימונים שלך — סטים, חזרות, משקלים, RIR והערות — ונותן מבט לאחור ומבט קדימה.' },
+          { title: 'מבנה הדוח', body: 'מבט לאחור: דבקות בתוכנית (כמה אימונים בוצעו ומה נדחה או דולג), התקדמות, ומה עולה מההערות. אחר כך מבט קדימה — לכל תרגיל, מה בוצע ומה לעשות בפעם הבאה, מקובץ לפי אימוני התוכנית. ואם שאלת שאלה בהערות, יש גם תשובות.' },
+          { title: 'תרגיל שנדחה מול תרגיל שדולג', body: 'אם תרגיל לא בוצע ביום שלו אבל כן בוצע ביום אחר — למשל כי המכונה הייתה תפוסה — הדוח מזהה זאת ולא מתייחס לזה כדילוג. תרגיל שבאמת לא בוצע מצוין בנפרד, כולל כמה זמן הוא נעדר.' },
           { title: 'על איזו תקופה', body: 'הדוח מתמקד באימונים שבוצעו מאז הדוח הקודם, כך שכל דוח עוסק במה שחדש. 4 השבועות האחרונים נשלחים כרקע בלבד, כדי לזהות מגמה — משקל שעולה, נתקע או יורד. בדוח הראשון המוקד הוא השבוע האחרון.' },
           { title: 'מתי אפשר להפיק', body: 'פעם אחת אחרי כל אימון. כל עוד לא נרשם אימון חדש מאז הדוח האחרון, הכפתור נעול — אין נתונים חדשים לנתח.' },
           { title: 'היכן הדוחות נשמרים', body: 'הדוחות נשמרים בחשבון שלך, לא במכשיר, ולכן הם מופיעים בכל מכשיר שבו תתחבר — טלפון ומחשב כאחד. הדוחות הקודמים מופיעים בתחתית המסך ואפשר לפתוח אותם.' },
@@ -244,9 +246,105 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
   )
 }
 
-/** The model returns "## heading" sections with numbered lines beneath. Light
- *  formatting only — no markdown dependency for two heading levels. */
+interface Report {
+  lookback: { adherence: string; progress: string; notes: string; pain: string | null }
+  workouts: { name: string; exercises: { name: string; this_week: string; next_time: string }[] }[]
+  questions: { question: string; answer: string }[]
+  closing: string
+}
+
+/** Reports are stored as JSON now. Anything written before that change is
+ *  plain text and still has to render, so this decides which it is. */
+function parseReport(text: string): Report | null {
+  try {
+    const r = JSON.parse(text)
+    return r && typeof r === 'object' && r.lookback && Array.isArray(r.workouts) ? r as Report : null
+  } catch {
+    return null
+  }
+}
+
 function Insights({ text }: { text: string }) {
+  const report = parseReport(text)
+  return report ? <StructuredReport report={report} /> : <PlainText text={text} />
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-gray-800 font-bold text-sm mb-1.5">{title}</p>
+      {children}
+    </div>
+  )
+}
+
+function StructuredReport({ report }: { report: Report }) {
+  return (
+    <div className="space-y-5">
+      <Section title="מבט לאחור">
+        <div className="space-y-2">
+          <p className="text-gray-700 text-sm leading-relaxed">{report.lookback.adherence}</p>
+          <p className="text-gray-700 text-sm leading-relaxed">{report.lookback.progress}</p>
+          <p className="text-gray-700 text-sm leading-relaxed">{report.lookback.notes}</p>
+        </div>
+      </Section>
+
+      {/* Pain is visually separated on purpose — it must never read as one more
+          line of training commentary. */}
+      {report.lookback.pain && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
+          <p className="text-red-800 font-bold text-sm mb-1">⚠ שים לב</p>
+          <p className="text-red-800 text-sm leading-relaxed">{report.lookback.pain}</p>
+        </div>
+      )}
+
+      <Section title="מבט קדימה">
+        <div className="space-y-4">
+          {report.workouts.map((w, i) => (
+            <div key={i}>
+              <p className="text-gray-500 text-xs font-bold mb-1.5">{w.name}</p>
+              <div className="space-y-1.5">
+                {/* One card per exercise rather than a three-column table:
+                    the same information, but readable at phone width. */}
+                {w.exercises.map((ex, j) => (
+                  <div key={j} className="bg-gray-50 rounded-xl px-3 py-2">
+                    <p className="text-gray-800 text-sm font-semibold leading-snug">{ex.name}</p>
+                    <p className="text-gray-500 text-xs mt-1 leading-snug">
+                      <span className="text-gray-400">השבוע: </span>{ex.this_week}
+                    </p>
+                    <p className="text-blue-700 text-xs mt-0.5 leading-snug">
+                      <span className="text-blue-400">בפעם הבאה: </span>{ex.next_time}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {report.questions.length > 0 && (
+        <Section title="לגבי מה ששאלת">
+          <div className="space-y-2.5">
+            {report.questions.map((q, i) => (
+              <div key={i}>
+                <p className="text-gray-700 text-sm font-semibold leading-snug">{q.question}</p>
+                <p className="text-gray-600 text-sm leading-relaxed mt-0.5">{q.answer}</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {report.closing && (
+        <p className="text-gray-500 text-sm text-center pt-1">{report.closing}</p>
+      )}
+    </div>
+  )
+}
+
+/** Reports written before the structured format. */
+function PlainText({ text }: { text: string }) {
   const lines = text.split('\n')
   return (
     <div className="space-y-2">

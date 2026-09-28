@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
+import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
 import {
   buildExerciseMuscleMap,
@@ -18,6 +20,36 @@ import {
 
 const LOOKBACK_DAYS = 28
 const MODEL = 'claude-opus-5'
+const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+
+/** The report's shape. Structured rather than free markdown so the panel can
+ *  lay it out natively — a three-column table is unreadable on a phone, but the
+ *  same rows render fine as one card per exercise. */
+const ReportSchema = z.object({
+  lookback: z.object({
+    adherence: z.string().describe(
+      'פסקה: כמה אימונים מתוך כמה בוצעו, באילו ימים ואיזה אימון. ציין תרגיל שנראה חסר אך בוצע ביום אחר — זה לא דילוג. ציין בנפרד תרגיל שבאמת לא בוצע, וכמה זמן הוא נעדר.',
+    ),
+    progress: z.string().describe('פסקה: מה התקדם יפה ומה נתקע.'),
+    notes: z.string().describe('פסקה: מה עולה מההערות שנכתבו, ומה זה אומר.'),
+    pain: z.string().nullable().describe(
+      'אם הערה מתארת כאב או מיחוש — כאן בלבד, במפורש, עם המלצה לפנות לאיש מקצוע. עייפות שרירית או RIR נמוך אינם כאב. אם אין כאב — כתוב במפורש שלא עלה אזכור של כאב.',
+    ),
+  }),
+  workouts: z.array(z.object({
+    name: z.string().describe('שם האימון מהתוכנית'),
+    exercises: z.array(z.object({
+      name: z.string(),
+      this_week: z.string().describe('מה בוצע בפועל — משקל וחזרות, קצר'),
+      next_time: z.string().describe('מה לעשות בפעם הבאה — קונקרטי, עם מספרים'),
+    })),
+  })).describe('קיבוץ לפי אימוני התוכנית, בסדר שבו בוצעו'),
+  questions: z.array(z.object({
+    question: z.string(),
+    answer: z.string(),
+  })).describe('רק אם ההערות מכילות שאלה מפורשת. אחרת מערך ריק.'),
+  closing: z.string().describe('משפט סיום קצר ומעודד'),
+})
 
 const SYSTEM_PROMPT = `אתה מאמן כושר אישי מנוסה שמלווה את המתאמן הזה לאורך זמן. אתה כותב בעברית, פונה למתאמן בגוף שני.
 
@@ -37,16 +69,20 @@ const SYSTEM_PROMPT = `אתה מאמן כושר אישי מנוסה שמלווה
 עייפות רגילה או RIR נמוך אינם כאב ואינם מצריכים את ההתייחסות הזו.
 
 על מה הדוח מדבר:
-הדוח עוסק בתקופת המוקד — האימונים האחרונים, מאז הדוח הקודם. נתוני ארבעת השבועות מופיעים כרקע בלבד, כדי שתוכל לומר אם משקל עולה, נתקע או יורד. אל תסכם מחדש את כל החודש: אם תרגיל לא בוצע בתקופת המוקד, אל תעסוק בו אלא אם הוא נעדר באופן שראוי לציין.
+הדוח עוסק בתקופת המוקד — האימונים האחרונים, מאז הדוח הקודם. נתוני ארבעת השבועות מופיעים כרקע בלבד, כדי שתוכל לומר אם משקל עולה, נתקע או יורד. אל תסכם מחדש את כל החודש.
 
-מבנה התשובה — בדיוק שני חלקים:
-## מבט לאחור
-פסקה קצרה על תקופת המוקד: מה קרה באימונים האחרונים, מה בלט לטובה ומה לרעה. השווה לרקע רק כשזה מוסיף משהו — "שלישי ברציפות באותו משקל" או "עלייה ראשונה מזה שלושה שבועות".
+מבט לאחור — שלוש הפסקאות:
+- דבקות בתוכנית: כמה אימונים מתוך כמה, באילו ימים ואיזה אימון. השדה "חסרים_באותו_יום" מציין לכל תרגיל אם הוא בוצע ביום אחר בתקופה. אם כן — זה לא דילוג, אמור זאת במפורש ואל תבקר על כך; מכונה תפוסה היא סיבה לגיטימית. אם לא — זה דילוג אמיתי, וכדאי לציין מ"בוצע_לאחרונה" כמה זמן התרגיל נעדר. תרגיל שנעדר שבועות הוא מועמד להסרה רשמית מהתוכנית או להחזרה מודעת אליה.
+- התקדמות: מה עלה יפה ומה נתקע, עם מספרים.
+- הערות: מה עולה מההערות שנכתבו. אם המתאמן כתב שאלה — ענה עליה בחלק השאלות, לא כאן.
 
-## מבט קדימה
-המלצות ממוספרות וקונקרטיות לאימונים הקרובים — מה לשנות בפעם הבאה, עם שמות תרגילים ומספרים.
+טבלת ההמלצות:
+לכל תרגיל שבוצע בתקופת המוקד — שורה אחת, מקובצת לפי אימון. "מה בוצע" קצר ועובדתי. "בפעם הבאה" קונקרטי לפי ההתקדמות הכפולה: אם הגיע לראש טווח החזרות ב-RIR נמוך — להעלות משקל ולחזור לתחתית הטווח; אם יש עוד מקום בטווח — אותו משקל ועוד חזרה. תרגיל שנתקע כמה אימונים — אמור זאת. תרגיל שלא בוצע — שורה שאומרת מה להחליט לגביו.
 
-זה פאנל בתוך אפליקציה, לא דוח ארוך. תהיה תמציתי.`
+השאלות: ענה רק על שאלות שהמתאמן באמת כתב בהערות. אל תמציא שאלות. אם אין — מערך ריק.
+כשאתה לא יכול לאמת משהו מהנתונים, כמו טכניקה או זווית, אמור זאת והפנה למדריך במקום.
+
+זה פאנל בתוך אפליקציה. תהיה תמציתי — פסקה היא שלוש-ארבע שורות, לא עשר.`
 
 interface LogRow {
   exercise_id: string
@@ -258,8 +294,14 @@ export default async function handler(req: any, res: any) {
   const focusSummary = detail(summarise(focusRows))
   const backgroundSummary = background(summarise(logRows))
 
-  // ── Active plan structure
+  // ── Active plan structure, plus per-session adherence.
+  //    The adherence detail is what lets the report distinguish an exercise
+  //    that was moved to another day (machine busy) from one genuinely skipped,
+  //    and from one absent for weeks. Without it the model can only guess.
   let planSummary: unknown = null
+  let sessions: unknown[] = []
+  let neglected: unknown[] = []
+
   if (plan) {
     const [{ data: workouts }, { data: links }] = await Promise.all([
       supabase.from('plan_workouts').select('id, name, day_of_week').eq('plan_id', plan.id),
@@ -268,15 +310,73 @@ export default async function handler(req: any, res: any) {
         .select('exercise_id, workout_id, is_optional')
         .eq('plan_id', plan.id),
     ])
-    const woName = new Map((workouts ?? []).map((w: any) => [w.id, w.name]))
+    const woName = new Map((workouts ?? []).map((w: any) => [w.id, w.name as string]))
     const byWorkout: Record<string, string[]> = {}
+    /** workout name -> planned exercise ids, for the done/missing comparison */
+    const plannedOf: Record<string, string[]> = {}
+    /** exercise id -> the workout it belongs to */
+    const workoutOfEx = new Map<string, string>()
+
     for (const l of links ?? []) {
       const key = (l.workout_id && woName.get(l.workout_id)) || 'ללא שיוך'
       const ex = exMap.get(l.exercise_id)
       if (!ex) continue
       ;(byWorkout[key] ??= []).push(ex.name_he + (l.is_optional ? ' (רשות)' : ''))
+      ;(plannedOf[key] ??= []).push(l.exercise_id)
+      workoutOfEx.set(l.exercise_id, key)
     }
-    planSummary = { שם: plan.name, החל_מ: plan.start_date, אימונים: byWorkout }
+    planSummary = {
+      שם: plan.name,
+      החל_מ: plan.start_date,
+      מספר_אימונים_בשבוע: Object.keys(plannedOf).length,
+      אימונים: byWorkout,
+    }
+
+    // Which training day was which workout: whichever workout most of that
+    // day's exercises belong to.
+    const daysInFocus = [...new Set(focusRows.map(l => l.logged_at.slice(0, 10)))].sort()
+    const doneInFocus = new Set(focusRows.map(l => l.exercise_id))
+
+    sessions = daysInFocus.map(day => {
+      const dayRows = focusRows.filter(l => l.logged_at.slice(0, 10) === day)
+      const counts: Record<string, number> = {}
+      for (const l of dayRows) {
+        const w = workoutOfEx.get(l.exercise_id)
+        if (w) counts[w] = (counts[w] ?? 0) + 1
+      }
+      const workout = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+      const doneToday = new Set(dayRows.map(l => l.exercise_id))
+      const planned = workout ? plannedOf[workout] ?? [] : []
+
+      const missing = planned.filter(id => !doneToday.has(id))
+      return {
+        תאריך: day,
+        יום: WEEKDAYS[new Date(day + 'T12:00:00').getDay()],
+        אימון: workout,
+        בוצעו: dayRows.length,
+        // Split deliberately: "done on another day" is not a skipped exercise,
+        // and the report should not scold for a busy machine.
+        חסרים_באותו_יום: missing.map(id => ({
+          תרגיל: exMap.get(id)?.name_he ?? '?',
+          בוצע_ביום_אחר_בתקופה: doneInFocus.has(id),
+        })),
+      }
+    })
+
+    // Planned exercises absent from the whole 28-day window, with how long.
+    const lastSeen = new Map<string, string>()
+    for (const l of logRows) {
+      const d = l.logged_at.slice(0, 10)
+      const prev = lastSeen.get(l.exercise_id)
+      if (!prev || d > prev) lastSeen.set(l.exercise_id, d)
+    }
+    neglected = [...workoutOfEx.entries()]
+      .filter(([id]) => !doneInFocus.has(id))
+      .map(([id, workout]) => ({
+        תרגיל: exMap.get(id)?.name_he ?? '?',
+        אימון: workout,
+        בוצע_לאחרונה: lastSeen.get(id) ?? `לא ב-${LOOKBACK_DAYS} הימים האחרונים`,
+      }))
   }
 
   // ── Muscle volume, reusing the report's own aggregation
@@ -300,6 +400,8 @@ export default async function handler(req: any, res: any) {
     מוקד_הדוח: focusLabel,
     שבוע_נוכחי: sundayOf(new Date().toISOString().slice(0, 10)),
     תוכנית_פעילה: planSummary,
+    אימונים_בתקופה: sessions,
+    תרגילים_שלא_בוצעו_בתקופה: neglected,
     תרגילים_בתקופת_המוקד: focusSummary,
     רקע_4_שבועות: backgroundSummary,
     הערה_על_הרקע: `רקע בלבד, ${LOOKBACK_DAYS} הימים האחרונים כולל תקופת המוקד. משמש להשוואת מגמה — האם משקל עולה, נתקע או יורד. הדוח עצמו עוסק בתקופת המוקד.`,
@@ -309,15 +411,18 @@ export default async function handler(req: any, res: any) {
 
   try {
     const anthropic = new Anthropic({ apiKey })
-    const message = await anthropic.messages.create({
+    const message = await anthropic.messages.parse({
       model: MODEL,
-      max_tokens: 2000,
+      max_tokens: 4000,
       system: SYSTEM_PROMPT,
       thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium' },
+      output_config: {
+        effort: 'medium',
+        format: zodOutputFormat(ReportSchema),
+      },
       messages: [{
         role: 'user',
-        content: `הנה נתוני האימונים שלי. תן לי מבט לאחור ומבט קדימה.\n\n${JSON.stringify(context, null, 1)}`,
+        content: `הנה נתוני האימונים שלי. תן לי דוח.\n\n${JSON.stringify(context, null, 1)}`,
       }],
     })
 
@@ -326,16 +431,15 @@ export default async function handler(req: any, res: any) {
       return
     }
 
-    const text = message.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text)
-      .join('\n')
-      .trim()
-
-    if (!text) {
+    // parsed_output is null when the model's output failed schema validation.
+    if (!message.parsed_output) {
       res.status(200).json({ error: 'empty_response' })
       return
     }
+
+    // Stored as JSON in the same text column. The panel parses it, and falls
+    // back to plain-text rendering for reports written before this change.
+    const text = JSON.stringify(message.parsed_output)
 
     // Stored so the report follows the user across devices instead of living
     // in one browser. Written through the caller's token, so RLS decides whose
