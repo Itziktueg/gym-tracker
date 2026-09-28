@@ -286,10 +286,13 @@ function Insights({ text }: { text: string }) {
   return report ? <StructuredReport report={report} /> : <PlainText text={text} />
 }
 
+/** The green from the emailed report Itzik asked this to match. */
+const HEADING = '#1a5d1a'
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-gray-800 font-bold text-sm mb-1.5">{title}</p>
+      <p className="font-bold text-base mb-2" style={{ color: HEADING }}>{title}</p>
       {children}
     </div>
   )
@@ -319,21 +322,35 @@ function StructuredReport({ report }: { report: Report }) {
         <div className="space-y-4">
           {report.workouts.map((w, i) => (
             <div key={i}>
-              <p className="text-gray-500 text-xs font-bold mb-1.5">{w.name}</p>
-              <div className="space-y-1.5">
-                {/* One card per exercise rather than a three-column table:
-                    the same information, but readable at phone width. */}
-                {w.exercises.map((ex, j) => (
-                  <div key={j} className="bg-gray-50 rounded-xl px-3 py-2">
-                    <p className="text-gray-800 text-sm font-semibold leading-snug">{ex.name}</p>
-                    <p className="text-gray-500 text-xs mt-1 leading-snug">
-                      <span className="text-gray-400">השבוע: </span>{ex.this_week}
-                    </p>
-                    <p className="text-blue-700 text-xs mt-0.5 leading-snug">
-                      <span className="text-blue-400">בפעם הבאה: </span>{ex.next_time}
-                    </p>
-                  </div>
-                ))}
+              <p className="font-bold text-sm mb-1.5" style={{ color: HEADING }}>{w.name}</p>
+              {/* A real three-column table, as in the emailed report. The
+                  overflow wrapper is a safety valve for a long exercise name —
+                  the table is sized to fit a phone without it. */}
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-right" style={{ minWidth: 300 }}>
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 bg-gray-50 px-1.5 py-1 text-[11px] font-bold text-gray-600 w-[30%]">תרגיל</th>
+                      <th className="border border-gray-300 bg-gray-50 px-1.5 py-1 text-[11px] font-bold text-gray-600 w-[28%]">השבוע</th>
+                      <th className="border border-gray-300 bg-gray-50 px-1.5 py-1 text-[11px] font-bold text-gray-600">בפעם הבאה</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {w.exercises.map((ex, j) => (
+                      <tr key={j}>
+                        <td className="border border-gray-300 px-1.5 py-1.5 text-[11px] font-semibold text-gray-800 align-top leading-snug">
+                          {ex.name}
+                        </td>
+                        <td className="border border-gray-300 px-1.5 py-1.5 text-[11px] text-gray-600 align-top leading-snug">
+                          {ex.this_week}
+                        </td>
+                        <td className="border border-gray-300 px-1.5 py-1.5 text-[11px] text-gray-800 align-top leading-snug">
+                          {ex.next_time}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           ))}
