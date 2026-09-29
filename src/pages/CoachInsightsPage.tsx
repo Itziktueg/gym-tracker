@@ -79,6 +79,9 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
   /** Null while using the weekly default; a chosen range once opened. */
   const [range, setRange]     = useState<{ from: string; to: string } | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  /** The report produced in this visit. Shown expanded; everything else stays
+   *  collapsed in the list, so opening the page is a choice, not a wall of text. */
+  const [fresh, setFresh]     = useState<Insight | null>(null)
 
   const current = history?.[0] ?? null
 
@@ -163,6 +166,7 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
         period_end:       body.periodEnd ?? null,
       }
       setHistory(prev => [next, ...(prev ?? [])])
+      setFresh(next)
       setLatest(body.latestLoggedAt)
       if (body.saved === false) setError('load_failed')
     } catch {
@@ -172,7 +176,8 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
     }
   }
 
-  const previous = (history ?? []).slice(1)
+  // Everything except the report just generated, which shows expanded above.
+  const previous = (history ?? []).filter(r => r.id !== fresh?.id)
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -186,72 +191,21 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
       </div>
 
       <div className="flex-1 p-4 space-y-3">
-        {history === null && !error && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
-            <p className="text-gray-400 text-sm">טוען…</p>
-          </div>
-        )}
-
-        {current && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            {/* The period the report describes, stated before the report —
-                otherwise there is no way to know what it covers. */}
-            <div className="border-b border-gray-100 pb-2.5 mb-3">
-              <p className="font-bold text-base" style={{ color: HEADING }}>
-                דוח אימונים · {fmtRange(current.period_start, current.period_end) ?? current.focus_label ?? ''}
-              </p>
-              <p className="text-gray-400 text-xs mt-0.5">הופק ב-{fmtWhen(current.generated_at)}</p>
-            </div>
-            <Insights text={current.text} />
-          </div>
-        )}
-
-        {history !== null && !current && !loading && !error && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
-            <p className="text-4xl mb-3">🧠</p>
-            <p className="text-gray-700 font-bold text-sm mb-1">תובנות מהמאמן</p>
-            <p className="text-gray-500 text-xs leading-relaxed">
-              ניתוח האימונים מאז הדוח הקודם — מה עבד, ומה כדאי לשנות בפעם הבאה.
-              מבוסס על האימונים, ה-RIR וההערות שרשמת, עם 4 השבועות האחרונים כרקע.
-            </p>
-          </div>
-        )}
-
-        {loading && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
-            <p className="text-gray-500 text-sm">המאמן בוחן את הנתונים…</p>
-            <p className="text-gray-400 text-xs mt-1">זה לוקח כמה שניות</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-amber-800 text-sm leading-relaxed">
-            {ERRORS[error] ?? ERRORS.ai_failed}
-            {/* The technical cause, for reporting a failure rather than
-                guessing at it. Deliberately quiet and secondary. */}
-            {errorDetail && (
-              <p dir="ltr" className="text-amber-600/70 text-[11px] mt-2 font-mono break-words text-left">
-                {errorDetail}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Period selector. Closed, it states the default in words so the
-            report's scope is knowable before generating it. */}
+        {/* Period selector first: choosing the period comes before producing a
+            report on it. Compact, since it is a control rather than content. */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => {
               setPickerOpen(o => !o)
               if (!range) setRange({ from: sundayOfThisWeek(), to: toISODate(new Date()) })
             }}
-            className="w-full px-4 py-2.5 flex items-center justify-between text-right active:bg-gray-50"
+            className="w-full px-3 py-2 flex items-center justify-between text-right active:bg-gray-50"
           >
-            <span className="text-gray-700 text-sm">
+            <span className="text-gray-700 text-xs">
               <span className="text-gray-400">תקופה: </span>
               {range ? fmtRange(range.from, range.to) : 'השבוע הנוכחי'}
             </span>
-            <span className="text-gray-300 text-lg">{pickerOpen ? '−' : '+'}</span>
+            <span className="text-gray-300 text-base">{pickerOpen ? '−' : '+'}</span>
           </button>
 
           {pickerOpen && range && (
@@ -304,9 +258,62 @@ export default function CoachInsightsPage({ userId, onClose }: Props) {
           </p>
         )}
 
+        {loading && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
+            <p className="text-gray-500 text-sm">המאמן בוחן את הנתונים…</p>
+            <p className="text-gray-400 text-xs mt-1">זה לוקח כמה שניות</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-amber-800 text-sm leading-relaxed">
+            {ERRORS[error] ?? ERRORS.ai_failed}
+            {/* The technical cause, for reporting a failure rather than
+                guessing at it. Deliberately quiet and secondary. */}
+            {errorDetail && (
+              <p dir="ltr" className="text-amber-600/70 text-[11px] mt-2 font-mono break-words text-left">
+                {errorDetail}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* The report just produced, between the control that produced it and
+            the archive. Earlier reports stay collapsed in the list below. */}
+        {fresh && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <div className="border-b border-gray-100 pb-2.5 mb-3">
+              <p className="font-bold text-base" style={{ color: HEADING }}>
+                דוח אימונים · {fmtRange(fresh.period_start, fresh.period_end) ?? fresh.focus_label ?? ''}
+              </p>
+              <p className="text-gray-400 text-xs mt-0.5">הופק ב-{fmtWhen(fresh.generated_at)}</p>
+            </div>
+            <Insights text={fresh.text} />
+          </div>
+        )}
+
+        {history === null && !error && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
+            <p className="text-gray-400 text-sm">טוען…</p>
+          </div>
+        )}
+
+        {history !== null && history.length === 0 && !loading && !error && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
+            <p className="text-4xl mb-3">🧠</p>
+            <p className="text-gray-700 font-bold text-sm mb-1">תובנות מהמאמן</p>
+            <p className="text-gray-500 text-xs leading-relaxed">
+              ניתוח האימונים בתקופה שתבחר — מה עבד, ומה כדאי לשנות בפעם הבאה.
+              מבוסס על האימונים, ה-RIR וההערות שרשמת, עם 4 השבועות שקדמו לתקופה כרקע.
+            </p>
+          </div>
+        )}
+
         {previous.length > 0 && (
           <div className="pt-2">
-            <p className="text-gray-500 text-xs font-bold mb-2 px-1">דוחות קודמים</p>
+            <p className="text-gray-500 text-xs font-bold mb-2 px-1">
+              {fresh ? 'דוחות קודמים' : 'הדוחות שלי'}
+            </p>
             <div className="space-y-2">
               {previous.map(r => (
                 <div key={r.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
