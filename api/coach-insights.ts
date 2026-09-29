@@ -23,6 +23,25 @@ import {
  *  far longer than that, and the client only sees a generic failure. */
 export const maxDuration = 60
 
+function toISODate(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const isISODate = (v: unknown): v is string =>
+  typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+
+/** "20.9–26.9", the form used in the report Itzik asked this to match. */
+function fmtRange(from: string, to: string) {
+  const short = (iso: string) => {
+    const [, m, d] = iso.split('-')
+    return `${Number(d)}.${Number(m)}`
+  }
+  return from === to ? short(from) : `${short(from)}–${short(to)}`
+}
+
 const LOOKBACK_DAYS = 28
 const MODEL = 'claude-opus-5'
 const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
@@ -74,7 +93,7 @@ const SYSTEM_PROMPT = `אתה מאמן כושר אישי מנוסה שמלווה
 עייפות רגילה או RIR נמוך אינם כאב ואינם מצריכים את ההתייחסות הזו.
 
 על מה הדוח מדבר:
-הדוח עוסק בתקופת המוקד — האימונים האחרונים, מאז הדוח הקודם. נתוני ארבעת השבועות מופיעים כרקע בלבד, כדי שתוכל לומר אם משקל עולה, נתקע או יורד. אל תסכם מחדש את כל החודש.
+הדוח עוסק בתקופה המוגדרת בשדה "תקופת_הדוח" בלבד. נתוני ארבעת השבועות שקדמו לה מופיעים כרקע בלבד, כדי שתוכל לומר אם משקל עולה, נתקע או יורד. אל תסכם מחדש את הרקע, ואל תתייחס לאימונים שמחוץ לתקופה כאילו הם חלק ממנה.
 
 מבט לאחור — שלוש הפסקאות:
 - דבקות בתוכנית: כמה אימונים מתוך כמה, באילו ימים ואיזה אימון. השדה "חסרים_באותו_יום" מציין לכל תרגיל אם הוא בוצע ביום אחר בתקופה. אם כן — זה לא דילוג, אמור זאת במפורש ואל תבקר על כך; מכונה תפוסה היא סיבה לגיטימית. אם לא — זה דילוג אמיתי, וכדאי לציין מ"בוצע_לאחרונה" כמה זמן התרגיל נעדר. תרגיל שנעדר שבועות הוא מועמד להסרה רשמית מהתוכנית או להחזרה מודעת אליה.
@@ -145,15 +164,31 @@ export default async function handler(req: any, res: any) {
     return
   }
 
-  const since = new Date()
-  since.setDate(since.getDate() - LOOKBACK_DAYS)
-  const sinceIso = since.toISOString()
+  // ── The reported period.
+  // The plan is weekly, so the default is this training week (Sunday to today)
+  // rather than "everything since the last report" — a range the user could not
+  // name and therefore could not check. An explicit from/to overrides it.
+  const today = toISODate(new Date())
+  const customFrom = isISODate(req.body?.from) ? req.body.from as string : null
+  const customTo   = isISODate(req.body?.to)   ? req.body.to   as string : null
+  const isCustom   = !!(customFrom && customTo)
+
+  let periodStart = customFrom ?? sundayOf(today)
+  let periodEnd   = customTo ?? today
+  if (periodStart > periodEnd) [periodStart, periodEnd] = [periodEnd, periodStart]
+
+  // Background reaches back from the period start, so a report on an older
+  // range still gets the weeks before it for trend rather than the weeks before
+  // *today*, which would be after the period being reported on.
+  const bgFrom = new Date(periodStart + 'T00:00:00')
+  bgFrom.setDate(bgFrom.getDate() - LOOKBACK_DAYS)
 
   const [{ data: logs }, { data: exercises }, { data: plans }] = await Promise.all([
     supabase
       .from('workout_logs')
       .select('exercise_id, logged_at, sets_completed, reps_completed, weight, rir, notes')
-      .gte('logged_at', sinceIso)
+      .gte('logged_at', toISODate(bgFrom))
+      .lte('logged_at', periodEnd + 'T23:59:59.999Z')
       .order('logged_at'),
     supabase
       .from('exercises_user')
@@ -182,7 +217,10 @@ export default async function handler(req: any, res: any) {
   const seenParam = typeof req.body?.lastSeenLoggedAt === 'string'
     ? req.body.lastSeenLoggedAt
     : null
-  if (seenParam && latestLoggedAt <= seenParam) {
+  // The cap guards the default report, which would otherwise re-analyse
+  // unchanged data. A chosen range is a deliberate, different question, so it
+  // is not blocked — the user is not asking for the same report twice.
+  if (!isCustom && seenParam && latestLoggedAt <= seenParam) {
     res.status(200).json({ error: 'no_new_activity', latestLoggedAt })
     return
   }
@@ -280,20 +318,20 @@ export default async function handler(req: any, res: any) {
       RIR_ממוצע: mean(a.rirs),
     }))
 
-  // The report covers what has happened since the previous one. Falls back to
-  // the last 7 days on a first run, when there is no previous report to anchor to.
-  const weekAgo = new Date()
-  weekAgo.setDate(weekAgo.getDate() - 7)
-  const focusFrom = seenParam ?? weekAgo.toISOString()
-  let focusRows = logRows.filter(l => l.logged_at > focusFrom)
-  let focusLabel = seenParam ? 'האימונים מאז הדוח הקודם' : 'השבוע האחרון'
+  // The report covers exactly the requested period — no inference, so the range
+  // printed at the top of the report is the range it actually describes.
+  const focusRows = logRows.filter(l => {
+    const d = l.logged_at.slice(0, 10)
+    return d >= periodStart && d <= periodEnd
+  })
+  const focusLabel = `${fmtRange(periodStart, periodEnd)}`
 
-  // A first report from someone who last trained more than a week ago would
-  // otherwise have an empty focus window. Fall back to their most recent day.
   if (focusRows.length === 0) {
-    const lastDay = latestLoggedAt.slice(0, 10)
-    focusRows = logRows.filter(l => l.logged_at.slice(0, 10) === lastDay)
-    focusLabel = `האימון האחרון (${lastDay})`
+    res.status(200).json({
+      error: 'no_activity_in_period',
+      periodStart, periodEnd,
+    })
+    return
   }
 
   const focusSummary = detail(summarise(focusRows))
@@ -402,7 +440,7 @@ export default async function handler(req: any, res: any) {
   }
 
   const context = {
-    מוקד_הדוח: focusLabel,
+    תקופת_הדוח: `${periodStart} עד ${periodEnd} (${focusLabel})`,
     שבוע_נוכחי: sundayOf(new Date().toISOString().slice(0, 10)),
     תוכנית_פעילה: planSummary,
     אימונים_בתקופה: sessions,
@@ -459,6 +497,8 @@ export default async function handler(req: any, res: any) {
         text,
         latest_logged_at: latestLoggedAt,
         focus_label:      focusLabel,
+        period_start:     periodStart,
+        period_end:       periodEnd,
         model:            MODEL,
       })
       .select('id, generated_at')
@@ -476,6 +516,8 @@ export default async function handler(req: any, res: any) {
       generatedAt: saved?.generated_at ?? new Date().toISOString(),
       latestLoggedAt,
       focusLabel,
+      periodStart,
+      periodEnd,
       saved:       !saveErr,
     })
   } catch (err) {
