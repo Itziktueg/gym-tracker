@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { copyMuscleLinks } from '../lib/copyMuscleLinks'
 import HelpModal from '../components/HelpModal'
 import type { ExerciseUser, ExerciseGlobal } from '../types/database'
 import {
@@ -278,8 +279,14 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
           .select()
           .single()
 
-        if (userData)
+        if (userData) {
+          // Carry the muscle assignments across with the exercise, or it will
+          // be missing from נפח לפי שריר without any sign that it is.
+          await copyMuscleLinks([
+            { userExerciseId: (userData as ExerciseUser).id, globalExerciseId: selectedGlobalId },
+          ])
           setExercises(prev => sortByOrder([...prev, userData as ExerciseUser]))
+        }
 
       } else {
         // Brand-new exercise: insert global then user
@@ -336,8 +343,14 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
           .select()
           .single()
 
-        if (userData)
+        if (userData) {
+          // A just-created global has no muscle rows yet, so this is usually a
+          // no-op — but it keeps every global → user copy going through one path.
+          await copyMuscleLinks([
+            { userExerciseId: (userData as ExerciseUser).id, globalExerciseId: globalData.id },
+          ])
           setExercises(prev => sortByOrder([...prev, userData as ExerciseUser]))
+        }
       }
 
     } else {

@@ -22,6 +22,7 @@ import MuscleVolumePage from './MuscleVolumePage'
 import CoachInsightsPage from './CoachInsightsPage'
 import ExercisePerformancePage from './ExercisePerformancePage'
 import ExerciseMusclesPage from './ExerciseMusclesPage'
+import { copyMuscleLinks } from '../lib/copyMuscleLinks'
 import WorkoutNotesPage from './WorkoutNotesPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
 import UserGuidePage from './UserGuidePage'
@@ -127,7 +128,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         .order('sort_order')
 
       if (globals && globals.length > 0) {
-        await supabase.from('exercises_user').insert(
+        const { data: inserted } = await supabase.from('exercises_user').insert(
           globals.map(ex => ({
             user_id: userId,
             global_exercise_id: ex.id,
@@ -144,6 +145,14 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             category: ex.category,
             sort_order: ex.sort_order,
           }))
+        ).select('id, global_exercise_id')
+
+        // Without this the new user gets exercises but no muscle data, and
+        // נפח לפי שריר silently shows them nothing.
+        await copyMuscleLinks(
+          (inserted ?? [])
+            .filter(e => e.global_exercise_id)
+            .map(e => ({ userExerciseId: e.id, globalExerciseId: e.global_exercise_id! })),
         )
       }
     }
