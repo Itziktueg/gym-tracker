@@ -13,9 +13,10 @@ interface Props {
   onNotes: () => void
   onCoach: () => void
   onExercisePerf: () => void
+  onExerciseMuscles: () => void
 }
 
-export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, onWeeklyDensity, onFrequency, onPlanVsActual, onMuscleVolume, onNotes, onCoach, onExercisePerf }: Props) {
+export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, onWeeklyDensity, onFrequency, onPlanVsActual, onMuscleVolume, onNotes, onCoach, onExercisePerf, onExerciseMuscles }: Props) {
   const [helpOpen, setHelpOpen] = useState(false)
 
   return (
@@ -77,6 +78,12 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, 
           onClick={onNotes}
         />
         <HubCard
+          icon="🫀"
+          title="שרירים לפי תרגיל"
+          description="מה כל תרגיל מפעיל — שריר ראשי ומשני"
+          onClick={onExerciseMuscles}
+        />
+        <HubCard
           icon="💪"
           title="נפח לפי שריר"
           description="סטים שבועיים לכל שריר, עם קרדיט חלקי לשריר משני"
@@ -100,6 +107,7 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, 
           { title: 'עצימות שבועית', body: 'עצימות מצטברת לפי קבוצת שריר לכל שבוע — לזיהוי מגמות עומס לאורך זמן.' },
           { title: 'תדירות תרגילים', body: 'מספר הפעמים שכל תרגיל בוצע בתקופה נבחרת, מסודר מגבוה לנמוך.' },
           { title: 'הערות אימון', body: 'הטקסט שכתבת בעת רישום תרגילים — תאריך, תרגיל והערה, מהחדש לישן.' },
+          { title: 'שרירים לפי תרגיל', body: 'כל תרגיל פעיל עם השרירים שהוא מפעיל — ראשי בתגית צבעונית, משני בתגית בהירה. לקריאה בלבד.' },
           { title: 'נפח לפי שריר', body: 'סטים שבועיים לכל שריר בפועל (19 שרירים), עם סט מלא לשריר ראשי וחצי סט לשריר משני.' },
           { title: 'ביצוע לעומת תכנון', body: 'לכל שבוע — כמה תרגילים, סטים, חזרות ועצימות תוכננו מול מה שבוצע, ואחוז ביצוע כולל.' },
         ]} />

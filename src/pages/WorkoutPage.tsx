@@ -21,6 +21,7 @@ import PlanVsActualPage from './PlanVsActualPage'
 import MuscleVolumePage from './MuscleVolumePage'
 import CoachInsightsPage from './CoachInsightsPage'
 import ExercisePerformancePage from './ExercisePerformancePage'
+import ExerciseMusclesPage from './ExerciseMusclesPage'
 import WorkoutNotesPage from './WorkoutNotesPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
 import UserGuidePage from './UserGuidePage'
@@ -83,6 +84,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
   const [muscleVolumeOpen, setMuscleVolumeOpen] = useState(false)
   const [coachOpen, setCoachOpen] = useState(false)
   const [exercisePerfOpen, setExercisePerfOpen] = useState(false)
+  const [exerciseMusclesOpen, setExerciseMusclesOpen] = useState(false)
   // Remembered per device. localStorage can throw in private mode, so guarded.
   const [lang, setLang] = useState<'he' | 'en'>(() => {
     try { return localStorage.getItem('exerciseLang') === 'en' ? 'en' : 'he' }
@@ -269,6 +271,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
     if (muscleVolumeOpen)       { history.pushState(null, ''); setMuscleVolumeOpen(false); setReportsHubOpen(true); return }
     if (coachOpen)              { history.pushState(null, ''); setCoachOpen(false); setReportsHubOpen(true); return }
     if (exercisePerfOpen)       { history.pushState(null, ''); setExercisePerfOpen(false); setReportsHubOpen(true); return }
+    if (exerciseMusclesOpen)    { history.pushState(null, ''); setExerciseMusclesOpen(false); setReportsHubOpen(true); return }
     if (notesOpen)              { history.pushState(null, ''); setNotesOpen(false); setReportsHubOpen(true); return }
     if (adminNotesOpen)         { history.pushState(null, ''); setAdminNotesOpen(false); setAdminHubOpen(true); return }
     if (densityOpen)            { history.pushState(null, ''); setDensityOpen(false); setReportsHubOpen(true); return }
@@ -471,6 +474,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         onNotes={() => { setReportsHubOpen(false); setNotesOpen(true) }}
         onCoach={() => { setReportsHubOpen(false); setCoachOpen(true) }}
         onExercisePerf={() => { setReportsHubOpen(false); setExercisePerfOpen(true) }}
+        onExerciseMuscles={() => { setReportsHubOpen(false); setExerciseMusclesOpen(true) }}
       />
     )
   }
@@ -518,6 +522,10 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
 
   if (exercisePerfOpen) {
     return <ExercisePerformancePage userId={userId} onClose={() => { setExercisePerfOpen(false); setReportsHubOpen(true) }} />
+  }
+
+  if (exerciseMusclesOpen) {
+    return <ExerciseMusclesPage userId={userId} onClose={() => { setExerciseMusclesOpen(false); setReportsHubOpen(true) }} />
   }
 
   if (notesOpen) {
