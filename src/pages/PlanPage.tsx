@@ -291,8 +291,19 @@ export default function PlanPage({ userId, onClose }: Props) {
     if (futurePlan)   return `עריכת ${planName(futurePlan)} · תתחיל ב-${formatDate(futurePlan.start_date)}`
     if (!activePlan)  return `יצירת תוכנית חדשה שתתחיל היום (${formatDate(todayISO)})`
     if (startedToday) return `עדכון ${planName(activePlan)} — לא נוצרת תוכנית חדשה`
+
+    // Dates come from effectiveStart, the same value the save uses, so this
+    // cannot describe one thing and do another.
     const nextSeq = plans.reduce((m, p) => Math.max(m, p.seq ?? 0), -1) + 1
-    return `${planName(activePlan)} תיסגר אתמול · תוכנית ${nextSeq} תתחיל היום (${formatDate(todayISO)})`
+    const dayBefore = new Date(effectiveStart + 'T12:00:00')
+    dayBefore.setDate(dayBefore.getDate() - 1)
+
+    const when = effectiveStart === todayISO
+      ? `היום (${formatDate(todayISO)})`
+      : `ביום ראשון (${formatDate(effectiveStart)})`
+
+    return `${planName(activePlan)} תיסגר ב-${formatDate(toISODate(dayBefore))} · `
+         + `תוכנית ${nextSeq} תתחיל ${when}`
   }
 
   async function save() {
