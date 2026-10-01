@@ -157,6 +157,14 @@ export default function PlanPage({ userId, onClose }: Props) {
   const todayISO = toISODate(new Date())
   const isSunday = new Date().getDay() === 0
 
+  /** The coming Sunday. A plan change made mid-week takes effect then, so the
+   *  week you are training stays attached to the plan you started it under. */
+  const nextSundayISO = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7))
+    return toISODate(d)
+  })()
+
   const activePlan = plans.find(p =>
     p.start_date <= todayISO && (p.end_date === null || p.end_date >= todayISO)) ?? null
   const futurePlan = plans.find(p => p.start_date > todayISO) ?? null
@@ -164,7 +172,13 @@ export default function PlanPage({ userId, onClose }: Props) {
 
   const editTarget   = futurePlan ?? activePlan
   const startedToday = activePlan?.start_date === todayISO
-  const canEdit = !activePlan || !!futurePlan || startedToday || isSunday
+  // Always editable. Mid-week edits do not alter the running plan — they build
+  // the next one, starting Sunday — so there is nothing to protect against.
+  const canEdit = true
+  /** Where a save would land, for telling the user before they commit. */
+  const effectiveStart = (futurePlan?.start_date)
+    ?? (!activePlan || startedToday || isSunday ? todayISO : nextSundayISO)
+  const takesEffectLater = effectiveStart > todayISO
 
   const activeExercises = exercises.filter(e => e.is_active)
 
@@ -342,17 +356,21 @@ export default function PlanPage({ userId, onClose }: Props) {
 
       if (await writeLinks(target.id)) return
     } else {
+      // Starts today only when today is itself the start of a training week;
+      // otherwise the coming Sunday, leaving the current week intact.
+      const startISO = isSunday ? todayISO : nextSundayISO
+
       if (activePlan) {
-        const yesterday = new Date()
-        yesterday.setDate(yesterday.getDate() - 1)
+        const dayBefore = new Date(startISO + 'T12:00:00')
+        dayBefore.setDate(dayBefore.getDate() - 1)
         const { error } = await supabase.from('workout_plans')
-          .update({ end_date: toISODate(yesterday) }).eq('id', activePlan.id)
+          .update({ end_date: toISODate(dayBefore) }).eq('id', activePlan.id)
         if (fail('סגירת התוכנית הקודמת', error)) return
       }
 
       const nextSeq = plans.reduce((m, p) => Math.max(m, p.seq ?? 0), -1) + 1
       const { data: created, error: e2 } = await supabase.from('workout_plans')
-        .insert({ user_id: userId, seq: nextSeq, name: `תוכנית ${nextSeq}`, start_date: todayISO })
+        .insert({ user_id: userId, seq: nextSeq, name: `תוכנית ${nextSeq}`, start_date: startISO })
         .select().single()
       if (fail('יצירת תוכנית', e2)) return
       if (!created) { setError('יצירת תוכנית לא החזירה תוצאה'); setSaving(false); return }
@@ -653,11 +671,22 @@ export default function PlanPage({ userId, onClose }: Props) {
                 : 'יצירת תוכנית'}
             </button>
 
-            {!canEdit && (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
-                <p className="text-amber-800 text-xs leading-relaxed">
-                  ניתן לשנות תוכנית רק בימי ראשון — היום הראשון בשבוע האימונים,
-                  כך שכל שבוע שייך לתוכנית אחת בלבד.
+            {/* Said before editing, not after saving: the change is real but it
+                does not touch the week already under way. */}
+            {takesEffectLater && !futurePlan && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
+                <p className="text-blue-800 text-xs leading-relaxed">
+                  שינוי שתשמור ייכנס לתוקף ביום ראשון הקרוב ({formatDate(effectiveStart)}).
+                  התוכנית הנוכחית ממשיכה עד אז, כך שכל שבוע אימונים שייך לתוכנית אחת בלבד.
+                </p>
+              </div>
+            )}
+
+            {futurePlan && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
+                <p className="text-blue-800 text-xs leading-relaxed">
+                  {planName(futurePlan)} תיכנס לתוקף ב-{formatDate(futurePlan.start_date)}.
+                  עד אז אפשר להמשיך לערוך אותה, והתוכנית הנוכחית ממשיכה לפעול.
                 </p>
               </div>
             )}
@@ -696,7 +725,7 @@ export default function PlanPage({ userId, onClose }: Props) {
           { title: 'שיוך תרגילים', body: 'בחר טאב של אימון ולחץ על תרגילים כדי לשייך אליו. תרגיל שכבר שייך לאימון אחר מציג את שמו — לחיצה עליו תעביר אותו לאימון הנוכחי.' },
           { title: 'ללא שיוך', body: 'תרגילים שנוספו לפני שהוגדרו אימונים מופיעים בטאב "ללא שיוך" עד ששייכת אותם.' },
           { title: 'שמות התוכניות', body: 'המערכת ממספרת אוטומטית — תוכנית 0 היא התקופה שלפני התכנון, ואחריה 1, 2, 3...' },
-          { title: 'שינוי תוכנית', body: 'ניתן לשנות תוכנית פעילה רק בימי ראשון. תוכנית שטרם התחילה ניתנת לעריכה בכל יום.' },
+          { title: 'שינוי תוכנית', body: 'אפשר לשנות תוכנית בכל יום. שינוי שנשמר באמצע השבוע נכנס לתוקף ביום ראשון הקרוב — התוכנית הנוכחית ממשיכה עד אז, כך שהשבוע שכבר התחלת נשאר שייך לתוכנית אחת. עד שהתוכנית החדשה מתחילה אפשר להמשיך לערוך אותה.' },
         ]} />
       )}
     </div>
