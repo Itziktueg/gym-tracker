@@ -18,7 +18,7 @@ const CATEGORIES = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה �
 
 /** Which extra measure a cardio exercise records. Stored implicitly: whichever
  *  default is filled in. The form just makes that a choice. */
-type Metric = 'none' | 'distance' | 'floors'
+type Metric = 'none' | 'distance' | 'steps'
 
 const EMPTY_FORM = {
   name_he:        '',
@@ -49,7 +49,7 @@ function sessionFields(f: typeof EMPTY_FORM) {
       is_time_based:            f.is_time_based,
       default_duration_seconds: null,
       default_distance_km:      null,
-      default_floors_count:     null,
+      default_steps_count:     null,
     }
   }
   const cardio = activityKind(f.category) === 'cardio'
@@ -60,7 +60,7 @@ function sessionFields(f: typeof EMPTY_FORM) {
     default_weight:           0,
     default_duration_seconds: f.duration_min != null ? f.duration_min * 60 : null,
     default_distance_km:      cardio && f.metric === 'distance' ? f.metric_value : null,
-    default_floors_count:     cardio && f.metric === 'floors' && f.metric_value != null
+    default_steps_count:     cardio && f.metric === 'steps' && f.metric_value != null
                                 ? Math.round(f.metric_value) : null,
   }
 }
@@ -242,8 +242,8 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
       sort_order:     ex.sort_order,
       is_time_based:  ex.is_time_based,
       duration_min:   ex.default_duration_seconds != null ? Math.round(ex.default_duration_seconds / 60) : null,
-      metric:         ex.default_floors_count != null ? 'floors' : ex.default_distance_km != null ? 'distance' : 'none',
-      metric_value:   ex.default_floors_count ?? ex.default_distance_km ?? null,
+      metric:         ex.default_steps_count != null ? 'steps' : ex.default_distance_km != null ? 'distance' : 'none',
+      metric_value:   ex.default_steps_count ?? ex.default_distance_km ?? null,
     })
     setEditingId(ex.id)
     setSelectedGlobalId(null)
@@ -277,8 +277,8 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
       sort_order:     g.sort_order ?? 999,
       is_time_based:  g.is_time_based,
       duration_min:   g.default_duration_seconds != null ? Math.round(g.default_duration_seconds / 60) : null,
-      metric:         g.default_floors_count != null ? 'floors' : g.default_distance_km != null ? 'distance' : 'none',
-      metric_value:   g.default_floors_count ?? g.default_distance_km ?? null,
+      metric:         g.default_steps_count != null ? 'steps' : g.default_distance_km != null ? 'distance' : 'none',
+      metric_value:   g.default_steps_count ?? g.default_distance_km ?? null,
     })
     setFormImageFile(null)
     setFormImagePreview(g.image_url)
@@ -651,13 +651,13 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
                         className={inputCls}>
                         <option value="none">ללא</option>
                         <option value="distance">מרחק (ק"מ)</option>
-                        <option value="floors">קומות</option>
+                        <option value="steps">מדרגות</option>
                       </select>
                     </Field>
                   )}
                 </div>
                 {activityKind(formData.category) === 'cardio' && formData.metric !== 'none' && (
-                  <Field label={formData.metric === 'distance' ? 'מרחק ברירת מחדל (ק"מ)' : 'קומות ברירת מחדל'}>
+                  <Field label={formData.metric === 'distance' ? 'מרחק ברירת מחדל (ק"מ)' : 'מדרגות ברירת מחדל'}>
                     <input type="number" min={0} step={formData.metric === 'distance' ? 0.5 : 1}
                       value={formData.metric_value ?? ''}
                       onChange={e => setFormData({ ...formData, metric_value: e.target.value === '' ? null : +e.target.value })}

@@ -85,11 +85,11 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
     ?? CATEGORY_ACCENT[exercise.category ?? ''] ?? '#d1d5db'
 
   // Which extra measure a cardio session records, read off the exercise's own
-  // defaults: floors for stair climbing, distance for running and the like,
+  // defaults: steps for stair climbing, distance for running and the like,
   // neither for something like skipping rope. Stretching never has one.
-  const metric: 'distance' | 'floors' | null =
+  const metric: 'distance' | 'steps' | null =
     kind !== 'cardio' ? null
-      : exercise.default_floors_count != null ? 'floors'
+      : exercise.default_steps_count != null ? 'steps'
       : exercise.default_distance_km != null ? 'distance'
       : null
 
@@ -104,8 +104,8 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
     const v = prev?.distance_km ?? exercise.default_distance_km
     return v != null ? String(v) : ''
   })
-  const [floors, setFloors] = useState(() => {
-    const v = prev?.floors_count ?? exercise.default_floors_count
+  const [steps, setSteps] = useState(() => {
+    const v = prev?.steps_count ?? exercise.default_steps_count
     return v != null ? String(v) : ''
   })
   const num = (t: string) => { const n = parseFloat(t.replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null }
@@ -166,7 +166,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
     loggedAt.setHours(12, 0, 0, 0)
     // One row for the whole session. Reps, weight and intensity stay 0: there
     // is nothing to multiply, and the reports that sum them skip these anyway.
-    const floorsN = num(floors)
+    const stepsN = num(steps)
     const sessionRecord = {
       user_id:          userId,
       exercise_id:      exercise.id,
@@ -180,7 +180,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
       rir:              null,
       duration_seconds: (num(durMin) ?? 0) * 60,
       distance_km:      metric === 'distance' ? num(distKm) : null,
-      floors_count:     metric === 'floors' && floorsN !== null ? Math.round(floorsN) : null,
+      steps_count:     metric === 'steps' && stepsN !== null ? Math.round(stepsN) : null,
     }
     const records = session ? [sessionRecord] : lines.map(line => ({
       user_id:        userId,
@@ -216,7 +216,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
       .update(session ? {
         default_duration_seconds: (num(durMin) ?? 0) * 60 || null,
         default_distance_km:      metric === 'distance' ? num(distKm) : null,
-        default_floors_count:     metric === 'floors' && num(floors) !== null ? Math.round(num(floors)!) : null,
+        default_steps_count:     metric === 'steps' && num(steps) !== null ? Math.round(num(steps)!) : null,
       } : {
         default_sets:   lines.length,
         default_reps:   lines[0].reps,
@@ -355,8 +355,8 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
               {metric === 'distance' && (
                 <SessionField label="מרחק" unit='ק"מ' value={distKm} onChange={setDistKm} step={0.5} inputMode="decimal" />
               )}
-              {metric === 'floors' && (
-                <SessionField label="קומות" unit="קומות" value={floors} onChange={setFloors} step={1} inputMode="numeric" />
+              {metric === 'steps' && (
+                <SessionField label="מדרגות" unit="מדרגות" value={steps} onChange={setSteps} step={1} inputMode="numeric" />
               )}
               <p className="text-gray-400 text-[11px] leading-snug">
                 {kind === 'stretch'
@@ -516,7 +516,7 @@ function SessionField({ label, unit, value, onChange, step, inputMode }: {
   }
   return (
     <div className="flex items-center gap-2">
-      <span className="text-gray-500 text-xs font-bold w-10 shrink-0 text-right">{label}</span>
+      <span className="text-gray-500 text-xs font-bold w-12 shrink-0 text-right">{label}</span>
       <button
         onClick={() => bump(-step)}
         className="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-700 font-bold text-xl leading-none shrink-0"
@@ -532,7 +532,7 @@ function SessionField({ label, unit, value, onChange, step, inputMode }: {
         onClick={() => bump(step)}
         className="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-700 font-bold text-xl leading-none shrink-0"
       >+</button>
-      <span className="text-gray-400 text-xs w-9 shrink-0">{unit}</span>
+      <span className="text-gray-400 text-xs w-12 shrink-0">{unit}</span>
     </div>
   )
 }

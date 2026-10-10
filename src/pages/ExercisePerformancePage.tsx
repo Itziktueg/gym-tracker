@@ -47,7 +47,7 @@ interface Cell {
   sessions: number      // distinct days — >1 means the week is an average of several
   durationSec: number | null   // session activities: average per session
   distanceKm: number | null
-  floors: number | null
+  steps: number | null
 }
 
 function fmtWeek(iso: string) {
@@ -78,10 +78,10 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
       const logs = await fetchAllRows<{
         exercise_id: string; logged_at: string; sets_completed: number | null
         reps_completed: number | null; weight: number | null; rir: number | null
-        duration_seconds: number | null; distance_km: number | null; floors_count: number | null
+        duration_seconds: number | null; distance_km: number | null; steps_count: number | null
       }>((f, t) => supabase
         .from('workout_logs')
-        .select('exercise_id, logged_at, sets_completed, reps_completed, weight, rir, duration_seconds, distance_km, floors_count')
+        .select('exercise_id, logged_at, sets_completed, reps_completed, weight, rir, duration_seconds, distance_km, steps_count')
         .eq('user_id', userId)
         .order('logged_at')
         .range(f, t))
@@ -98,7 +98,7 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
       interface Acc {
         repsSum: number; weightSum: number; sets: number
         rirSum: number; rirSets: number; days: Set<string>
-        durSum: number; durN: number; distSum: number; distN: number; floorSum: number; floorN: number
+        durSum: number; durN: number; distSum: number; distN: number; stepSum: number; stepN: number
       }
       const acc: Record<string, Record<string, Acc>> = {}
       const weekSet = new Set<string>()
@@ -114,7 +114,7 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
         const byWeek = (acc[log.exercise_id] ??= {})
         const a = (byWeek[week] ??= {
           repsSum: 0, weightSum: 0, sets: 0, rirSum: 0, rirSets: 0, days: new Set(),
-          durSum: 0, durN: 0, distSum: 0, distN: 0, floorSum: 0, floorN: 0,
+          durSum: 0, durN: 0, distSum: 0, distN: 0, stepSum: 0, stepN: 0,
         })
         a.repsSum   += (log.reps_completed ?? 0) * sets
         a.weightSum += (log.weight ?? 0) * sets
@@ -124,7 +124,7 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
         // "two in a week are averaged" rule the strength cells follow.
         if (log.duration_seconds != null) { a.durSum += log.duration_seconds; a.durN += 1 }
         if (log.distance_km != null)      { a.distSum += log.distance_km;     a.distN += 1 }
-        if (log.floors_count != null)     { a.floorSum += log.floors_count;   a.floorN += 1 }
+        if (log.steps_count != null)     { a.stepSum += log.steps_count;   a.stepN += 1 }
         // RIR is optional per set, so its average is over the marked sets only —
         // averaging in unmarked sets as zero would read as training to failure.
         if (log.rir != null) {
@@ -145,7 +145,7 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
             sessions: a.days.size,
             durationSec: a.durN   > 0 ? a.durSum / a.durN : null,
             distanceKm:  a.distN  > 0 ? Math.round((a.distSum / a.distN) * 100) / 100 : null,
-            floors:      a.floorN > 0 ? Math.round(a.floorSum / a.floorN) : null,
+            steps:      a.stepN > 0 ? Math.round(a.stepSum / a.stepN) : null,
           }
         }
       }
@@ -267,7 +267,7 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
                                 </div>
                                 <div className="text-[10px] leading-tight tabular-nums text-gray-500">
                                   {c.distanceKm != null ? `${fmtNum(c.distanceKm)} ק"מ`
-                                    : c.floors != null ? `${c.floors} קומות` : ' '}
+                                    : c.steps != null ? `${c.steps} מדרגות` : ' '}
                                   {c.sessions > 1 && (
                                     <span className="text-gray-400" title="ממוצע של יותר מאימון אחד השבוע">
                                       {' '}·{c.sessions}

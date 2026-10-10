@@ -34,7 +34,7 @@ export interface ExerciseGlobal {
   sort_order: number
   default_duration_seconds: number | null   // cardio / stretching: planned session length
   default_distance_km: number | null         // cardio with a distance
-  default_floors_count: number | null        // stair climbing
+  default_steps_count: number | null        // stair climbing
   created_at: string
 }
 
@@ -64,7 +64,7 @@ export interface ExerciseUser {
   is_active: boolean
   default_duration_seconds: number | null
   default_distance_km: number | null
-  default_floors_count: number | null
+  default_steps_count: number | null
   created_at: string
 }
 
@@ -109,7 +109,7 @@ export interface WorkoutLog {
   rir: number | null           // reps in reserve, 0-4 (4 means "4 or more"); null = not recorded
   duration_seconds: number | null   // cardio / stretching only; reps and weight stay 0
   distance_km: number | null
-  floors_count: number | null
+  steps_count: number | null
 }
 
 // Joined types used in the UI

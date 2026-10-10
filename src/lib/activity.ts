@@ -3,7 +3,7 @@
  *
  * Strength is the original model: sets x reps x weight. Cardio and stretching
  * are logged as one continuous session instead - a duration, plus a distance
- * (running, cycling...) or a floor count (stair climbing). They carry
+ * (running, cycling...) or a stair count (stair climbing). They carry
  * is_time_based = true as well, which is what keeps them out of the intensity
  * and volume sums that would otherwise add minutes to repetitions.
  *
@@ -52,7 +52,7 @@ const trim = (n: number) => (n % 1 === 0 ? String(n) : String(Math.round(n * 100
 export interface SessionValues {
   duration_seconds: number | null
   distance_km: number | null
-  floors_count: number | null
+  steps_count: number | null
 }
 
 /** "30 דק' · 5 ק"מ" - the one-line form used wherever a session is shown. */
@@ -60,6 +60,6 @@ export function describeSession(v: SessionValues): string {
   const parts: string[] = []
   if (v.duration_seconds) parts.push(fmtDuration(v.duration_seconds))
   if (v.distance_km)      parts.push(`${trim(v.distance_km)} ק"מ`)
-  if (v.floors_count)     parts.push(`${v.floors_count} קומות`)
+  if (v.steps_count)     parts.push(`${v.steps_count} מדרגות`)
   return parts.join(' · ') || '—'
 }

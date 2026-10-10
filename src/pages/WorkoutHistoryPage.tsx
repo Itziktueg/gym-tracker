@@ -31,7 +31,7 @@ interface ExerciseEntry {
   rirCount: number  // how many did, so the average ignores the rest
   durationSec: number   // session activities only
   distanceKm: number
-  floors: number
+  steps: number
 }
 
 interface ExerciseHistory {
@@ -62,10 +62,10 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
       const logs = await fetchAllRows<{
         exercise_id: string; logged_at: string; sets_completed: number
         reps_completed: number; weight: number; intensity: number; rir: number | null
-        duration_seconds: number | null; distance_km: number | null; floors_count: number | null
+        duration_seconds: number | null; distance_km: number | null; steps_count: number | null
       }>((f, t) => supabase
         .from('workout_logs')
-        .select('exercise_id, logged_at, sets_completed, reps_completed, weight, intensity, rir, duration_seconds, distance_km, floors_count')
+        .select('exercise_id, logged_at, sets_completed, reps_completed, weight, intensity, rir, duration_seconds, distance_km, steps_count')
         .eq('user_id', userId)
         .order('logged_at', { ascending: false })
         .range(f, t))
@@ -86,7 +86,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
         const date = log.logged_at.slice(0, 10)
         if (!histMap[log.exercise_id]) histMap[log.exercise_id] = {}
         const byDate = histMap[log.exercise_id]
-        if (!byDate[date]) byDate[date] = { date, sets: 0, rows: 0, reps: 0, weight: 0, intensity: 0, rirSum: 0, rirCount: 0, durationSec: 0, distanceKm: 0, floors: 0 }
+        if (!byDate[date]) byDate[date] = { date, sets: 0, rows: 0, reps: 0, weight: 0, intensity: 0, rirSum: 0, rirCount: 0, durationSec: 0, distanceKm: 0, steps: 0 }
         const e = byDate[date]
         e.rows      += 1
         e.sets      += log.sets_completed ?? 1
@@ -96,7 +96,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
         if (log.rir !== null && log.rir !== undefined) { e.rirSum += log.rir; e.rirCount += 1 }
         e.durationSec += log.duration_seconds ?? 0
         e.distanceKm  += log.distance_km ?? 0
-        e.floors      += log.floors_count ?? 0
+        e.steps      += log.steps_count ?? 0
       }
 
       // Build sorted exercise list (only those with at least one log)
@@ -178,11 +178,11 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                       {isSession(ex.category) ? (
                         <>
                           {/* A session has no sets, reps or weight - it is a
-                              duration, plus a distance or a floor count. */}
+                              duration, plus a distance or a stair count. */}
                           <div className="flex bg-gray-700">
                             <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: W.date }}>תאריך</span>
                             <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: 90 }}>משך</span>
-                            <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: BLOCK_W - W.date - 90 }}>מרחק / קומות</span>
+                            <span className="text-gray-300 text-xs font-medium text-center py-1" style={{ width: BLOCK_W - W.date - 90 }}>מרחק / מדרגות</span>
                           </div>
                           {ex.entries.map((entry, ri) => (
                             <div key={entry.date}
@@ -194,7 +194,7 @@ export default function WorkoutHistoryPage({ userId, onClose }: Props) {
                               <span className="text-xs text-gray-700 text-center py-1.5 tabular-nums"
                                 style={{ width: BLOCK_W - W.date - 90 }}>
                                 {entry.distanceKm > 0 ? `${Math.round(entry.distanceKm * 100) / 100} ק"מ`
-                                  : entry.floors > 0 ? `${entry.floors} קומות` : '—'}
+                                  : entry.steps > 0 ? `${entry.steps} מדרגות` : '—'}
                               </span>
                             </div>
                           ))}

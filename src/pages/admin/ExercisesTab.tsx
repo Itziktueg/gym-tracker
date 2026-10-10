@@ -31,7 +31,7 @@ const EMPTY: Omit<ExerciseGlobal, 'id' | 'created_at'> = {
   sort_order: 999,
   default_duration_seconds: null,
   default_distance_km: null,
-  default_floors_count: null,
+  default_steps_count: null,
 }
 
 export default function ExercisesTab() {
@@ -99,7 +99,7 @@ export default function ExercisesTab() {
    *  "set", with nothing in reps or weight - whatever the form last held. */
   function normalise(e: ExerciseGlobal): ExerciseGlobal {
     if (!isSession(e.category)) {
-      return { ...e, default_duration_seconds: null, default_distance_km: null, default_floors_count: null }
+      return { ...e, default_duration_seconds: null, default_distance_km: null, default_steps_count: null }
     }
     return { ...e, is_time_based: true, default_sets: 1, default_reps: 0, default_weight: 0 }
   }
@@ -279,13 +279,13 @@ export default function ExercisesTab() {
               <Field label='מרחק (ק"מ)'>
                 <input type="number" min={0} step={0.5}
                   value={editing.default_distance_km ?? ''}
-                  onChange={e => setEditing({ ...editing, default_distance_km: e.target.value === '' ? null : +e.target.value, default_floors_count: null })}
+                  onChange={e => setEditing({ ...editing, default_distance_km: e.target.value === '' ? null : +e.target.value, default_steps_count: null })}
                   className={inputCls} />
               </Field>
-              <Field label="קומות">
+              <Field label="מדרגות">
                 <input type="number" min={0} step={1}
-                  value={editing.default_floors_count ?? ''}
-                  onChange={e => setEditing({ ...editing, default_floors_count: e.target.value === '' ? null : +e.target.value, default_distance_km: null })}
+                  value={editing.default_steps_count ?? ''}
+                  onChange={e => setEditing({ ...editing, default_steps_count: e.target.value === '' ? null : +e.target.value, default_distance_km: null })}
                   className={inputCls} />
               </Field>
             </div>
