@@ -106,6 +106,10 @@ const SYSTEM_PROMPT = `אתה מאמן כושר אישי מנוסה שמלווה
 השאלות: ענה רק על שאלות שהמתאמן באמת כתב בהערות. אל תמציא שאלות. אם אין — מערך ריק.
 כשאתה לא יכול לאמת משהו מהנתונים, כמו טכניקה או זווית, אמור זאת והפנה למדריך במקום.
 
+הערות כלליות:
+בשדה "הערות_כלליות_בתקופה" המתאמן כתב הערות שלא קשורות לתרגיל מסוים — בדיקה רפואית, מחלה, שבוע עמוס. הן ההסבר לתקופה, לא נתון נוסף: אם הוא כותב שלא יכול היה להתאמן בגלל בדיקה רפואית, שבוע חלקי הוא לא דילוג. התחשב בהן בפסקת הדבקות ובהערות, ואל תבקר על מה שההערה מסבירה.
+כללי הכאב חלים גם עליהן: אם הערה כללית מתארת כאב או מיחוש — זה לשדה הכאב, בנפרד, עם הפניה לאיש מקצוע.
+
 אירובי, הליכה, ריצה, אופניים, שחייה, עליה במדרגות ומתיחות / יוגה:
 אלה סשנים רציפים — לא סטים, חזרות ומשקל, ואין להם RIR. הם מסומנים בשדה "סוג". תאר אותם כפי שהם: "30 דקות ריצה, 5 ק״מ", ולעולם לא כ"0 חזרות". אל תחיל עליהם את שיטת ההתקדמות הכפולה או את יעד ה-RIR.
 בעמודת "השבוע" בטבלה כתוב משך ומרחק (או מדרגות). ב"בפעם הבאה" המלץ על התקדמות הדרגתית וצנועה — למשל תוספת של כ-10% במשך או במרחק, לא בשניהם יחד — או לשמור על אותו עומס אם בשבועות האחרונים הוא עלה.
@@ -191,21 +195,38 @@ export default async function handler(req: any, res: any) {
   const bgFrom = new Date(periodStart + 'T00:00:00')
   bgFrom.setDate(bgFrom.getDate() - LOOKBACK_DAYS)
 
-  const [{ data: logs }, { data: exercises }, { data: plans }] = await Promise.all([
+  // Every query names the user explicitly. RLS alone is NOT enough here: the
+  // policies let an admin read every user's rows, so relying on it meant a
+  // report generated from the admin account was built from everyone's data.
+  const uid = userData.user.id
+
+  const [{ data: logs }, { data: exercises }, { data: plans }, { data: general }] = await Promise.all([
     supabase
       .from('workout_logs')
       .select('exercise_id, logged_at, sets_completed, reps_completed, weight, rir, notes, duration_seconds, distance_km, steps_count')
+      .eq('user_id', uid)
       .gte('logged_at', toISODate(bgFrom))
       .lte('logged_at', periodEnd + 'T23:59:59.999Z')
       .order('logged_at'),
     supabase
       .from('exercises_user')
-      .select('id, name_he, category, default_sets, default_reps, default_weight, is_time_based, is_bilateral, double_weight'),
+      .select('id, name_he, category, default_sets, default_reps, default_weight, is_time_based, is_bilateral, double_weight')
+      .eq('user_id', uid),
     supabase
       .from('workout_plans')
       .select('id, name, start_date, end_date')
+      .eq('user_id', uid)
       .is('end_date', null)
       .limit(1),
+    // Notes not tied to any workout - a medical test, an illness, a bad week.
+    // The context a training log alone cannot give the coach.
+    supabase
+      .from('general_notes')
+      .select('note_date, text')
+      .eq('user_id', uid)
+      .gte('note_date', periodStart)
+      .lte('note_date', periodEnd)
+      .order('note_date'),
   ])
 
   const logRows = (logs ?? []) as LogRow[]
@@ -480,6 +501,7 @@ export default async function handler(req: any, res: any) {
     תוכנית_פעילה: planSummary,
     אימונים_בתקופה: sessions,
     תרגילים_שלא_בוצעו_בתקופה: neglected,
+    הערות_כלליות_בתקופה: (general ?? []).map((g: any) => ({ תאריך: g.note_date, הערה: g.text })),
     תרגילים_בתקופת_המוקד: focusSummary,
     רקע_4_שבועות: backgroundSummary,
     הערה_על_הרקע: `רקע בלבד, ${LOOKBACK_DAYS} הימים האחרונים כולל תקופת המוקד. משמש להשוואת מגמה — האם משקל עולה, נתקע או יורד. הדוח עצמו עוסק בתקופת המוקד.`,
