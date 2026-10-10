@@ -3,19 +3,22 @@ import { supabase } from '../lib/supabase'
 import { fetchAllRows } from '../lib/fetchAllRows'
 import { sundayOf } from '../lib/muscleVolume'
 import HelpModal from '../components/HelpModal'
+import { isSession, fmtDuration, SESSION_CATEGORIES, SESSION_STYLE } from '../lib/activity'
 
 interface Props {
   userId: string
   onClose: () => void
 }
 
-const CATEGORY_ORDER = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
+const CATEGORY_ORDER = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה', ...SESSION_CATEGORIES]
 
 const CATEGORY_COLORS: Record<string, string> = {
   'פלג גוף תחתון': 'bg-blue-500',
   'גב וכתפיים':    'bg-violet-500',
   'חזה וזרועות':   'bg-orange-500',
   'בטן וליבה':     'bg-teal-500',
+  'אירובי':        SESSION_STYLE['אירובי'].band,
+  'מתיחות / יוגה': SESSION_STYLE['מתיחות / יוגה'].band,
 }
 
 /** Same scale as the logging screen: red at failure, green with plenty left,
@@ -33,6 +36,7 @@ interface ExerciseRow {
   name_he: string
   category: string
   timeBased: boolean
+  session: boolean       // cardio / stretching: shown as duration, not reps x weight
 }
 
 interface Cell {
@@ -41,6 +45,9 @@ interface Cell {
   rir: number | null
   sets: number
   sessions: number      // distinct days — >1 means the week is an average of several
+  durationSec: number | null   // session activities: average per session
+  distanceKm: number | null
+  floors: number | null
 }
 
 function fmtWeek(iso: string) {
@@ -71,9 +78,10 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
       const logs = await fetchAllRows<{
         exercise_id: string; logged_at: string; sets_completed: number | null
         reps_completed: number | null; weight: number | null; rir: number | null
+        duration_seconds: number | null; distance_km: number | null; floors_count: number | null
       }>((f, t) => supabase
         .from('workout_logs')
-        .select('exercise_id, logged_at, sets_completed, reps_completed, weight, rir')
+        .select('exercise_id, logged_at, sets_completed, reps_completed, weight, rir, duration_seconds, distance_km, floors_count')
         .eq('user_id', userId)
         .order('logged_at')
         .range(f, t))
@@ -90,6 +98,7 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
       interface Acc {
         repsSum: number; weightSum: number; sets: number
         rirSum: number; rirSets: number; days: Set<string>
+        durSum: number; durN: number; distSum: number; distN: number; floorSum: number; floorN: number
       }
       const acc: Record<string, Record<string, Acc>> = {}
       const weekSet = new Set<string>()
@@ -105,11 +114,17 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
         const byWeek = (acc[log.exercise_id] ??= {})
         const a = (byWeek[week] ??= {
           repsSum: 0, weightSum: 0, sets: 0, rirSum: 0, rirSets: 0, days: new Set(),
+          durSum: 0, durN: 0, distSum: 0, distN: 0, floorSum: 0, floorN: 0,
         })
         a.repsSum   += (log.reps_completed ?? 0) * sets
         a.weightSum += (log.weight ?? 0) * sets
         a.sets      += sets
         a.days.add(log.logged_at.slice(0, 10))
+        // One row is one session, so these average per session, matching the
+        // "two in a week are averaged" rule the strength cells follow.
+        if (log.duration_seconds != null) { a.durSum += log.duration_seconds; a.durN += 1 }
+        if (log.distance_km != null)      { a.distSum += log.distance_km;     a.distN += 1 }
+        if (log.floors_count != null)     { a.floorSum += log.floors_count;   a.floorN += 1 }
         // RIR is optional per set, so its average is over the marked sets only —
         // averaging in unmarked sets as zero would read as training to failure.
         if (log.rir != null) {
@@ -128,6 +143,9 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
             rir:      a.rirSets > 0 ? Math.round((a.rirSum / a.rirSets) * 10) / 10 : null,
             sets:     a.sets,
             sessions: a.days.size,
+            durationSec: a.durN   > 0 ? a.durSum / a.durN : null,
+            distanceKm:  a.distN  > 0 ? Math.round((a.distSum / a.distN) * 100) / 100 : null,
+            floors:      a.floorN > 0 ? Math.round(a.floorSum / a.floorN) : null,
           }
         }
       }
@@ -139,6 +157,7 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
           name_he: e.name_he,
           category: e.category ?? '',
           timeBased: !!e.is_time_based,
+          session: isSession(e.category),
         }))
         .sort((a, b) => {
           const catA = CATEGORY_ORDER.indexOf(a.category)
@@ -228,7 +247,7 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
                         style={{ width: NAME_WIDTH, minWidth: NAME_WIDTH }}
                       >
                         {ex.name_he}
-                        {ex.timeBased && (
+                        {ex.timeBased && !ex.session && (
                           <span className="text-gray-400 font-normal"> (שנ')</span>
                         )}
                       </td>
@@ -241,7 +260,22 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
                             className="border-b border-r border-gray-200 text-center py-1.5 px-1 align-middle"
                             style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                           >
-                            {c ? (
+                            {c && ex.session ? (
+                              <>
+                                <div className="text-gray-800 text-xs font-semibold tabular-nums leading-tight">
+                                  {fmtDuration(c.durationSec)}
+                                </div>
+                                <div className="text-[10px] leading-tight tabular-nums text-gray-500">
+                                  {c.distanceKm != null ? `${fmtNum(c.distanceKm)} ק"מ`
+                                    : c.floors != null ? `${c.floors} קומות` : ' '}
+                                  {c.sessions > 1 && (
+                                    <span className="text-gray-400" title="ממוצע של יותר מאימון אחד השבוע">
+                                      {' '}·{c.sessions}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            ) : c ? (
                               <>
                                 <div className="text-gray-800 text-xs font-semibold tabular-nums leading-tight">
                                   {fmtNum(c.reps)}
@@ -277,6 +311,7 @@ export default function ExercisePerformancePage({ userId, onClose }: Props) {
 
         <div className="bg-white border-t border-gray-200 px-4 py-2 flex gap-4 justify-center shrink-0">
           <span className="text-xs text-gray-400">חזרות × משקל</span>
+          <span className="text-xs text-gray-400">אירובי: משך ומרחק</span>
           <span className="text-xs text-gray-400">RIR ממוצע</span>
           <span className="text-xs text-gray-400">·2 = שני אימונים</span>
         </div>

@@ -11,7 +11,9 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-const CATEGORIES = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
+import { isSession, SESSION_CATEGORIES } from '../../lib/activity'
+
+const CATEGORIES = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה', ...SESSION_CATEGORIES]
 
 const EMPTY: Omit<ExerciseGlobal, 'id' | 'created_at'> = {
   name_he: '',
@@ -27,6 +29,9 @@ const EMPTY: Omit<ExerciseGlobal, 'id' | 'created_at'> = {
   notes: null,
   category: CATEGORIES[0],
   sort_order: 999,
+  default_duration_seconds: null,
+  default_distance_km: null,
+  default_floors_count: null,
 }
 
 export default function ExercisesTab() {
@@ -90,12 +95,22 @@ export default function ExercisesTab() {
     setImagePreview(ex.image_url)
   }
 
+  /** A session exercise (cardio, stretching) is always time-based, a single
+   *  "set", with nothing in reps or weight - whatever the form last held. */
+  function normalise(e: ExerciseGlobal): ExerciseGlobal {
+    if (!isSession(e.category)) {
+      return { ...e, default_duration_seconds: null, default_distance_km: null, default_floors_count: null }
+    }
+    return { ...e, is_time_based: true, default_sets: 1, default_reps: 0, default_weight: 0 }
+  }
+
   async function save() {
     if (!editing) return
     setSaving(true)
+    const toSave = normalise(editing)
 
     if (isNew) {
-      const { id: _id, created_at: _ca, ...payload } = editing
+      const { id: _id, created_at: _ca, ...payload } = toSave
       const { data, error } = await supabase
         .from('exercises_global')
         .insert(payload)
@@ -111,7 +126,7 @@ export default function ExercisesTab() {
         setExercises(prev => [...prev, saved])
       }
     } else {
-      let updated = { ...editing }
+      let updated = { ...toSave }
       if (pendingImageFile) {
         const url = await uploadImage(editing.id, pendingImageFile)
         updated = { ...updated, image_url: url }
@@ -130,6 +145,7 @@ export default function ExercisesTab() {
           video_url:     updated.video_url,
           is_bilateral:  updated.is_bilateral,
           double_weight: updated.double_weight,
+          is_time_based: updated.is_time_based,
         }
         if (updated.image_url) propagate.image_url = updated.image_url
         await supabase
@@ -252,23 +268,46 @@ export default function ExercisesTab() {
             </div>
           </Field>
 
-          <div className="grid grid-cols-3 gap-2">
-            <Field label="סטים">
-              <input type="number" min={1} value={editing.default_sets}
-                onChange={e => setEditing({ ...editing, default_sets: +e.target.value })}
-                className={inputCls} />
-            </Field>
-            <Field label="חזרות">
-              <input type="number" min={1} value={editing.default_reps}
-                onChange={e => setEditing({ ...editing, default_reps: +e.target.value })}
-                className={inputCls} />
-            </Field>
-            <Field label='משקל ק"ג'>
-              <input type="number" min={0} step={1} value={editing.default_weight}
-                onChange={e => setEditing({ ...editing, default_weight: +e.target.value })}
-                className={inputCls} />
-            </Field>
-          </div>
+          {isSession(editing.category) ? (
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="משך (דקות)">
+                <input type="number" min={0} step={5}
+                  value={editing.default_duration_seconds != null ? Math.round(editing.default_duration_seconds / 60) : ''}
+                  onChange={e => setEditing({ ...editing, default_duration_seconds: e.target.value === '' ? null : +e.target.value * 60 })}
+                  className={inputCls} />
+              </Field>
+              <Field label='מרחק (ק"מ)'>
+                <input type="number" min={0} step={0.5}
+                  value={editing.default_distance_km ?? ''}
+                  onChange={e => setEditing({ ...editing, default_distance_km: e.target.value === '' ? null : +e.target.value, default_floors_count: null })}
+                  className={inputCls} />
+              </Field>
+              <Field label="קומות">
+                <input type="number" min={0} step={1}
+                  value={editing.default_floors_count ?? ''}
+                  onChange={e => setEditing({ ...editing, default_floors_count: e.target.value === '' ? null : +e.target.value, default_distance_km: null })}
+                  className={inputCls} />
+              </Field>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="סטים">
+                <input type="number" min={1} value={editing.default_sets}
+                  onChange={e => setEditing({ ...editing, default_sets: +e.target.value })}
+                  className={inputCls} />
+              </Field>
+              <Field label="חזרות">
+                <input type="number" min={1} value={editing.default_reps}
+                  onChange={e => setEditing({ ...editing, default_reps: +e.target.value })}
+                  className={inputCls} />
+              </Field>
+              <Field label='משקל ק"ג'>
+                <input type="number" min={0} step={1} value={editing.default_weight}
+                  onChange={e => setEditing({ ...editing, default_weight: +e.target.value })}
+                  className={inputCls} />
+              </Field>
+            </div>
+          )}
 
           <label className="flex items-center gap-2 cursor-pointer">
             <input

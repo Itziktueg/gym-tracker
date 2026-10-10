@@ -106,6 +106,11 @@ const SYSTEM_PROMPT = `אתה מאמן כושר אישי מנוסה שמלווה
 השאלות: ענה רק על שאלות שהמתאמן באמת כתב בהערות. אל תמציא שאלות. אם אין — מערך ריק.
 כשאתה לא יכול לאמת משהו מהנתונים, כמו טכניקה או זווית, אמור זאת והפנה למדריך במקום.
 
+אירובי, הליכה, ריצה, אופניים, שחייה, עליה במדרגות ומתיחות / יוגה:
+אלה סשנים רציפים — לא סטים, חזרות ומשקל, ואין להם RIR. הם מסומנים בשדה "סוג". תאר אותם כפי שהם: "30 דקות ריצה, 5 ק״מ", ולעולם לא כ"0 חזרות". אל תחיל עליהם את שיטת ההתקדמות הכפולה או את יעד ה-RIR.
+בעמודת "השבוע" בטבלה כתוב משך ומרחק (או קומות). ב"בפעם הבאה" המלץ על התקדמות הדרגתית וצנועה — למשל תוספת של כ-10% במשך או במרחק, לא בשניהם יחד — או לשמור על אותו עומס אם בשבועות האחרונים הוא עלה.
+כשהתרגיל מופיע בתוכנית ולא בוצע, התייחס אליו כמו לכל תרגיל אחר שדולג. אל תשווה בין אירובי לאימון כוח — אלה עומסים שונים.
+
 זה פאנל בתוך אפליקציה. תהיה תמציתי — פסקה היא שלוש-ארבע שורות, לא עשר.`
 
 interface LogRow {
@@ -116,6 +121,9 @@ interface LogRow {
   weight: number | null
   rir: number | null
   notes: string | null
+  duration_seconds: number | null
+  distance_km: number | null
+  floors_count: number | null
 }
 
 export default async function handler(req: any, res: any) {
@@ -186,7 +194,7 @@ export default async function handler(req: any, res: any) {
   const [{ data: logs }, { data: exercises }, { data: plans }] = await Promise.all([
     supabase
       .from('workout_logs')
-      .select('exercise_id, logged_at, sets_completed, reps_completed, weight, rir, notes')
+      .select('exercise_id, logged_at, sets_completed, reps_completed, weight, rir, notes, duration_seconds, distance_km, floors_count')
       .gte('logged_at', toISODate(bgFrom))
       .lte('logged_at', periodEnd + 'T23:59:59.999Z')
       .order('logged_at'),
@@ -242,6 +250,10 @@ export default async function handler(req: any, res: any) {
     notes: { date: string; text: string }[]
     last: string
     defaults: { sets: number; reps: number; weight: number }
+    // Session activities (cardio, stretching): one entry per session
+    durations: number[]   // minutes
+    distances: number[]   // km
+    floors: number[]
   }
   function summarise(rows: LogRow[]) {
     const agg: Record<string, Agg> = {}
@@ -260,6 +272,9 @@ export default async function handler(req: any, res: any) {
         rirs: [],
         notes: [],
         last: date,
+        durations: [],
+        distances: [],
+        floors: [],
         defaults: {
           sets: ex.default_sets,
           reps: ex.default_reps,
@@ -271,6 +286,9 @@ export default async function handler(req: any, res: any) {
       if (l.reps_completed != null) a.reps.push(l.reps_completed)
       if (l.weight != null) a.weights.push(l.weight)
       if (l.rir != null) a.rirs.push(l.rir)
+      if (l.duration_seconds != null) a.durations.push(Math.round(l.duration_seconds / 60))
+      if (l.distance_km != null) a.distances.push(l.distance_km)
+      if (l.floors_count != null) a.floors.push(l.floors_count)
       if (l.notes && !a.notes.some(n => n.date === date && n.text === l.notes)) {
         a.notes.push({ date, text: l.notes })
       }
@@ -290,8 +308,20 @@ export default async function handler(req: any, res: any) {
     (a.category ?? '').localeCompare(b.category ?? '', 'he')
 
   /** Full detail — this is the period the report is actually about. */
+  const isSessionCat = (c: string | null) => c === 'אירובי' || c === 'מתיחות / יוגה'
+
   const detail = (agg: Record<string, Agg>) =>
-    Object.values(agg).sort(byCategory).map(a => ({
+    Object.values(agg).sort(byCategory).map(a => isSessionCat(a.category) ? ({
+      תרגיל: a.name,
+      קטגוריה: a.category,
+      סוג: 'סשן רציף — לא סטים וחזרות',
+      ימי_אימון: a.days.size,
+      משך_בדקות_לכל_סשן: a.durations,
+      ...(a.distances.length ? { מרחק_ק_מ_לכל_סשן: a.distances } : {}),
+      ...(a.floors.length ? { קומות_לכל_סשן: a.floors } : {}),
+      אימון_אחרון: a.last,
+      הערות: a.notes.length ? a.notes : undefined,
+    }) : ({
       תרגיל: a.name,
       קטגוריה: a.category,
       ...(a.timeBased ? { מבוסס_זמן: true } : {}),
@@ -310,7 +340,12 @@ export default async function handler(req: any, res: any) {
    *  a weight is climbing or stuck, without competing for the model's attention
    *  with the period being reported on. */
   const background = (agg: Record<string, Agg>) =>
-    Object.values(agg).sort(byCategory).map(a => ({
+    Object.values(agg).sort(byCategory).map(a => isSessionCat(a.category) ? ({
+      תרגיל: a.name,
+      ימי_אימון: a.days.size,
+      משך_בדקות_לכל_סשן: a.durations,
+      ...(a.distances.length ? { מרחק_ק_מ_לכל_סשן: a.distances } : {}),
+    }) : ({
       תרגיל: a.name,
       ימי_אימון: a.days.size,
       סך_סטים: a.sets,

@@ -5,6 +5,8 @@ const CATEGORY: Record<string, { from: string; to: string; icon: string }> = {
   'גב וכתפיים':    { from: 'from-violet-100',  to: 'to-violet-200', icon: '🏋️' },
   'חזה וזרועות':   { from: 'from-orange-100',  to: 'to-orange-200', icon: '💪' },
   'בטן וליבה':     { from: 'from-teal-100',    to: 'to-teal-200',   icon: '⚡' },
+  'אירובי':        { from: 'from-rose-100',    to: 'to-rose-200',    icon: '🏃' },
+  'מתיחות / יוגה': { from: 'from-emerald-100', to: 'to-emerald-200', icon: '🧘' },
 }
 
 const FALLBACK = { from: 'from-gray-100', to: 'to-gray-200', icon: '🏃' }

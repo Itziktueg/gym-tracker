@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import HelpModal from '../components/HelpModal'
+import { isSession, SESSION_CATEGORIES, SESSION_STYLE } from '../lib/activity'
 
 interface Props {
   userId: string
   onClose: () => void
 }
 
-const CATEGORY_ORDER = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
+const CATEGORY_ORDER = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה', ...SESSION_CATEGORIES]
 
 /** Band colour per body part, matching the other reports, plus the chip fill
  *  used for primary muscles so the body part is readable from the chip alone. */
@@ -16,6 +17,8 @@ const CATEGORY_STYLE: Record<string, { band: string; chip: string }> = {
   'גב וכתפיים':    { band: 'bg-violet-500', chip: 'bg-violet-100 text-violet-800 border-violet-200' },
   'חזה וזרועות':   { band: 'bg-orange-500', chip: 'bg-orange-100 text-orange-800 border-orange-200' },
   'בטן וליבה':     { band: 'bg-teal-500',   chip: 'bg-teal-100 text-teal-800 border-teal-200' },
+  'אירובי':        { band: SESSION_STYLE['אירובי'].band, chip: 'bg-rose-100 text-rose-800 border-rose-200' },
+  'מתיחות / יוגה': { band: SESSION_STYLE['מתיחות / יוגה'].band, chip: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
 }
 const FALLBACK = { band: 'bg-gray-500', chip: 'bg-gray-200 text-gray-800 border-gray-300' }
 
@@ -89,7 +92,7 @@ export default function ExerciseMusclesPage({ userId, onClose }: Props) {
     )
   }
 
-  const missing = rows.filter(r => r.primary.length === 0 && r.secondary.length === 0).length
+  const missing = rows.filter(r => !isSession(r.category) && r.primary.length === 0 && r.secondary.length === 0).length
 
   let lastCategory = ''
 
@@ -111,6 +114,7 @@ export default function ExerciseMusclesPage({ userId, onClose }: Props) {
           if (showHeader) lastCategory = r.category
           const style = CATEGORY_STYLE[r.category] ?? FALLBACK
           const none = r.primary.length === 0 && r.secondary.length === 0
+          const notApplicable = none && isSession(r.category)
 
           return (
             <div key={r.id}>
@@ -123,7 +127,9 @@ export default function ExerciseMusclesPage({ userId, onClose }: Props) {
               <div className="bg-white border-b border-gray-200 px-4 py-2.5">
                 <p className="text-gray-800 text-sm font-semibold mb-1.5">{r.name}</p>
 
-                {none ? (
+                {notApplicable ? (
+                  <p className="text-gray-400 text-xs">לא רלוונטי — פעילות זו אינה מכוונת שריר</p>
+                ) : none ? (
                   // Surfaced rather than hidden: an exercise with no muscles is
                   // invisible in נפח לפי שריר, so it is worth being able to spot.
                   <p className="text-amber-700 text-xs">לא הוגדרו שרירים</p>

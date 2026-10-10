@@ -23,6 +23,7 @@ import CoachInsightsPage from './CoachInsightsPage'
 import ExercisePerformancePage from './ExercisePerformancePage'
 import ExerciseMusclesPage from './ExerciseMusclesPage'
 import { copyMuscleLinks } from '../lib/copyMuscleLinks'
+import { isSession } from '../lib/activity'
 import WorkoutNotesPage from './WorkoutNotesPage'
 import WorkoutHistoryPage from './WorkoutHistoryPage'
 import UserGuidePage from './UserGuidePage'
@@ -127,9 +128,14 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         .select('*')
         .order('sort_order')
 
-      if (globals && globals.length > 0) {
+      // Cardio and stretching stay out of the automatic copy. They are opt-in:
+      // a user adds them from the library when they want them, rather than
+      // finding six unused activities in a strength library on day one.
+      const seedable = (globals ?? []).filter(ex => !isSession(ex.category))
+
+      if (seedable.length > 0) {
         const { data: inserted } = await supabase.from('exercises_user').insert(
-          globals.map(ex => ({
+          seedable.map(ex => ({
             user_id: userId,
             global_exercise_id: ex.id,
             name_he: ex.name_he,
@@ -141,6 +147,12 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
             default_weight: ex.default_weight,
             is_bilateral: ex.is_bilateral,
             double_weight: ex.double_weight,
+            // Was missing: a new user's plank lost its time-based flag, and with
+            // it the exclusion from the intensity sums.
+            is_time_based: ex.is_time_based,
+            default_duration_seconds: ex.default_duration_seconds,
+            default_distance_km: ex.default_distance_km,
+            default_floors_count: ex.default_floors_count,
             notes: ex.notes,
             category: ex.category,
             sort_order: ex.sort_order,
@@ -807,6 +819,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
           { title: 'ק"ג או ליברות', body: 'במסך רישום התרגיל, תווית היחידה שליד המשקל היא כפתור — לחיצה מחליפה בין ק"ג לליברות, למכשירים שמסומנים בליברות. השמירה תמיד בק"ג, כך שהדוחות וההיסטוריה נשארים באותה יחידה.' },
           { title: 'הערה על התרגיל', body: 'במסך רישום התרגיל, מתחת לסטים, אפשר לכתוב איך היה התרגיל. ההערה נשמרת ומופיעה בדוח "הערות אימון".' },
           { title: 'תרגיל רשות', body: 'תגית "Opt" כתומה בפינה השמאלית-עליונה של התמונה מסמנת תרגיל רשות — כדאי אך לא חובה. הסימון נעשה בעריכת התוכנית.' },
+          { title: 'אירובי ומתיחות / יוגה', body: 'ריצה, אופניים, שחייה, הליכה, עליה במדרגות ויוגה נרשמים כסשן אחד: משך בדקות, ובאירובי גם מרחק או קומות — בלי סטים, חזרות, משקל או RIR. הוספה: ⚙️ ← ניהול תרגילים ← + ← ספרייה כללית. הם לא נספרים בדוחות העצימות והנפח, כן בביצוע לעומת תכנון.' },
           { title: 'תרגיל מבוסס זמן', body: 'תרגיל כמו פלאנק נמדד בשניות החזקה, שנרשמות בשדה החזרות. הוא נספר במונה התרגילים ובדוח "נפח לפי שריר", אך לא בסיכומי הסטים, החזרות והעצימות — שניות אינן נסכמות יחד עם חזרות. הרישום עצמו נשמר במלואו ומוצג בהיסטוריית האימונים.' },
           { title: 'טאבים של אימונים', body: 'אם התוכנית מחולקת לאימונים, שורת הטאבים מעל התרגילים מציגה כל אימון עם מונה ביצוע. הטאב שנפתח הוא האימון הבא בתור. "הכל" מציג את כל התוכנית לפי אימונים.' },
           { title: 'ביצוע תרגילים', body: '📊 דוחות ← 🏋️ ביצוע תרגילים. לכל תרגיל ושבוע: ממוצע חזרות × ממוצע משקל, וממוצע RIR מתחת. מראה אם התרגיל מתקדם ואם הוא נעשה קל יותר.' },

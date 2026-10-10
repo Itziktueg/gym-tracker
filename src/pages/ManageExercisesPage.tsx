@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { copyMuscleLinks } from '../lib/copyMuscleLinks'
+import { activityKind, isSession, SESSION_CATEGORIES } from '../lib/activity'
 import HelpModal from '../components/HelpModal'
 import type { ExerciseUser, ExerciseGlobal } from '../types/database'
 import {
@@ -13,7 +14,11 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-const CATEGORIES = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה']
+const CATEGORIES = ['פלג גוף תחתון', 'גב וכתפיים', 'חזה וזרועות', 'בטן וליבה', ...SESSION_CATEGORIES]
+
+/** Which extra measure a cardio exercise records. Stored implicitly: whichever
+ *  default is filled in. The form just makes that a choice. */
+type Metric = 'none' | 'distance' | 'floors'
 
 const EMPTY_FORM = {
   name_he:        '',
@@ -28,6 +33,36 @@ const EMPTY_FORM = {
   notes:          '',
   image_url:      null as string | null,
   sort_order:     999,
+  // Plank-style exercises keep reps as seconds; session activities use these.
+  is_time_based:  false,
+  duration_min:   null as number | null,
+  metric:         'none' as Metric,
+  metric_value:   null as number | null,
+}
+
+/** What an exercise's row carries beyond the common fields. For a session
+ *  activity it forces the shape the rest of the app relies on: time-based, one
+ *  "set", nothing in reps or weight, and exactly one optional extra measure. */
+function sessionFields(f: typeof EMPTY_FORM) {
+  if (!isSession(f.category)) {
+    return {
+      is_time_based:            f.is_time_based,
+      default_duration_seconds: null,
+      default_distance_km:      null,
+      default_floors_count:     null,
+    }
+  }
+  const cardio = activityKind(f.category) === 'cardio'
+  return {
+    is_time_based:            true,
+    default_sets:             1,
+    default_reps:             0,
+    default_weight:           0,
+    default_duration_seconds: f.duration_min != null ? f.duration_min * 60 : null,
+    default_distance_km:      cardio && f.metric === 'distance' ? f.metric_value : null,
+    default_floors_count:     cardio && f.metric === 'floors' && f.metric_value != null
+                                ? Math.round(f.metric_value) : null,
+  }
 }
 type FormData = typeof EMPTY_FORM
 
@@ -205,6 +240,10 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
       notes:          ex.notes ?? '',
       image_url:      ex.image_url,
       sort_order:     ex.sort_order,
+      is_time_based:  ex.is_time_based,
+      duration_min:   ex.default_duration_seconds != null ? Math.round(ex.default_duration_seconds / 60) : null,
+      metric:         ex.default_floors_count != null ? 'floors' : ex.default_distance_km != null ? 'distance' : 'none',
+      metric_value:   ex.default_floors_count ?? ex.default_distance_km ?? null,
     })
     setEditingId(ex.id)
     setSelectedGlobalId(null)
@@ -236,6 +275,10 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
       notes:          g.notes ?? '',
       image_url:      g.image_url,
       sort_order:     g.sort_order ?? 999,
+      is_time_based:  g.is_time_based,
+      duration_min:   g.default_duration_seconds != null ? Math.round(g.default_duration_seconds / 60) : null,
+      metric:         g.default_floors_count != null ? 'floors' : g.default_distance_km != null ? 'distance' : 'none',
+      metric_value:   g.default_floors_count ?? g.default_distance_km ?? null,
     })
     setFormImageFile(null)
     setFormImagePreview(g.image_url)
@@ -274,6 +317,7 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
             notes:              formData.notes.trim() || null,
             category:           formData.category,
             sort_order:         formData.sort_order,
+            ...sessionFields(formData),
             is_active:          true,
           })
           .select()
@@ -305,6 +349,7 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
             notes:          formData.notes.trim() || null,
             category:       formData.category,
             sort_order:     formData.sort_order,
+            ...sessionFields(formData),
           })
           .select()
           .single()
@@ -338,6 +383,7 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
             notes:              formData.notes.trim() || null,
             category:           formData.category,
             sort_order:         formData.sort_order,
+            ...sessionFields(formData),
             is_active:          true,
           })
           .select()
@@ -370,6 +416,7 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
         notes:          formData.notes.trim() || null,
         category:       formData.category,
         sort_order:     formData.sort_order,
+        ...sessionFields(formData),
       }
 
       await supabase.from('exercises_user').update(update).eq('id', editingId)
@@ -588,37 +635,76 @@ export default function ManageExercisesPage({ userId, onClose, onOpenPlan, initi
               </div>
             </Field>
 
-            <div className="grid grid-cols-3 gap-2">
-              <Field label="סטים">
-                <input type="number" min={1} value={formData.default_sets}
-                  onChange={e => setFormData({ ...formData, default_sets: +e.target.value })}
-                  className={inputCls} />
-              </Field>
-              <Field label="חזרות">
-                <input type="number" min={1} value={formData.default_reps}
-                  onChange={e => setFormData({ ...formData, default_reps: +e.target.value })}
-                  className={inputCls} />
-              </Field>
-              <Field label='משקל ק"ג'>
-                <input type="number" min={0} step={1} value={formData.default_weight}
-                  onChange={e => setFormData({ ...formData, default_weight: +e.target.value })}
-                  className={inputCls} />
-              </Field>
-            </div>
+            {isSession(formData.category) ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="משך (דקות)">
+                    <input type="number" min={0} step={5}
+                      value={formData.duration_min ?? ''}
+                      onChange={e => setFormData({ ...formData, duration_min: e.target.value === '' ? null : +e.target.value })}
+                      className={inputCls} />
+                  </Field>
+                  {activityKind(formData.category) === 'cardio' && (
+                    <Field label="מדד נוסף">
+                      <select value={formData.metric}
+                        onChange={e => setFormData({ ...formData, metric: e.target.value as Metric, metric_value: null })}
+                        className={inputCls}>
+                        <option value="none">ללא</option>
+                        <option value="distance">מרחק (ק"מ)</option>
+                        <option value="floors">קומות</option>
+                      </select>
+                    </Field>
+                  )}
+                </div>
+                {activityKind(formData.category) === 'cardio' && formData.metric !== 'none' && (
+                  <Field label={formData.metric === 'distance' ? 'מרחק ברירת מחדל (ק"מ)' : 'קומות ברירת מחדל'}>
+                    <input type="number" min={0} step={formData.metric === 'distance' ? 0.5 : 1}
+                      value={formData.metric_value ?? ''}
+                      onChange={e => setFormData({ ...formData, metric_value: e.target.value === '' ? null : +e.target.value })}
+                      className={inputCls} />
+                  </Field>
+                )}
+                <p className="text-gray-400 text-xs leading-snug">
+                  {activityKind(formData.category) === 'stretch'
+                    ? 'נרשם כסשן אחד — משך בלבד.'
+                    : 'נרשם כסשן רציף אחד — בלי סטים, חזרות או משקל.'}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  <Field label="סטים">
+                    <input type="number" min={1} value={formData.default_sets}
+                      onChange={e => setFormData({ ...formData, default_sets: +e.target.value })}
+                      className={inputCls} />
+                  </Field>
+                  <Field label="חזרות">
+                    <input type="number" min={1} value={formData.default_reps}
+                      onChange={e => setFormData({ ...formData, default_reps: +e.target.value })}
+                      className={inputCls} />
+                  </Field>
+                  <Field label='משקל ק"ג'>
+                    <input type="number" min={0} step={1} value={formData.default_weight}
+                      onChange={e => setFormData({ ...formData, default_weight: +e.target.value })}
+                      className={inputCls} />
+                  </Field>
+                </div>
 
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={formData.is_bilateral}
-                onChange={e => setFormData({ ...formData, is_bilateral: e.target.checked })}
-                className="w-4 h-4" />
-              <span className="text-gray-700 text-sm">תרגיל דו-צדדי (מכפיל חזרות)</span>
-            </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={formData.is_bilateral}
+                    onChange={e => setFormData({ ...formData, is_bilateral: e.target.checked })}
+                    className="w-4 h-4" />
+                  <span className="text-gray-700 text-sm">תרגיל דו-צדדי (מכפיל חזרות)</span>
+                </label>
 
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={formData.double_weight}
-                onChange={e => setFormData({ ...formData, double_weight: e.target.checked })}
-                className="w-4 h-4" />
-              <span className="text-gray-700 text-sm">כפל משקל (משקל בשתי ידיים)</span>
-            </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={formData.double_weight}
+                    onChange={e => setFormData({ ...formData, double_weight: e.target.checked })}
+                    className="w-4 h-4" />
+                  <span className="text-gray-700 text-sm">כפל משקל (משקל בשתי ידיים)</span>
+                </label>
+              </>
+            )}
 
             <Field label="הערות">
               <textarea value={formData.notes}

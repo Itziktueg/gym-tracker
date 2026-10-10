@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { ExerciseUser, WorkoutLog } from '../../types/database'
+import { activityKind, SESSION_STYLE } from '../../lib/activity'
 import RestTimer, { useRestTimerState, stopRestTimer, formatRestTime } from './RestTimer'
 
 interface Props {
@@ -78,7 +79,36 @@ const RIR_OPTIONS = [
 
 export default function LogModal({ exercise, todayLogs, userId, logDate, onClose, onSaved, onUndo, onEditExercise, workoutId, lang = 'he', restTimerSeconds }: Props) {
   const englishName = lang === 'en' ? exercise.name_en?.trim() : ''
-  const accent = CATEGORY_ACCENT[exercise.category ?? ''] ?? '#d1d5db'
+  const kind = activityKind(exercise.category)
+  const session = kind !== 'strength'
+  const accent = SESSION_STYLE[exercise.category ?? '']?.accent
+    ?? CATEGORY_ACCENT[exercise.category ?? ''] ?? '#d1d5db'
+
+  // Which extra measure a cardio session records, read off the exercise's own
+  // defaults: floors for stair climbing, distance for running and the like,
+  // neither for something like skipping rope. Stretching never has one.
+  const metric: 'distance' | 'floors' | null =
+    kind !== 'cardio' ? null
+      : exercise.default_floors_count != null ? 'floors'
+      : exercise.default_distance_km != null ? 'distance'
+      : null
+
+  // Session values are held as text so that a half-typed "5." survives; they
+  // are parsed when saved. Duration is minutes on screen, seconds in the table.
+  const prev = todayLogs[0]
+  const [durMin, setDurMin] = useState(() => {
+    const secs = prev?.duration_seconds ?? exercise.default_duration_seconds
+    return secs ? String(Math.round(secs / 60)) : ''
+  })
+  const [distKm, setDistKm] = useState(() => {
+    const v = prev?.distance_km ?? exercise.default_distance_km
+    return v != null ? String(v) : ''
+  })
+  const [floors, setFloors] = useState(() => {
+    const v = prev?.floors_count ?? exercise.default_floors_count
+    return v != null ? String(v) : ''
+  })
+  const num = (t: string) => { const n = parseFloat(t.replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null }
   const numSets = Math.max(exercise.default_sets, 1)
 
   const [lines, setLines] = useState<SetLine[]>(
@@ -100,7 +130,9 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
 
   // Same timer as the one in the header — this sheet just draws it much larger
   // while it runs, and hands the normal controls back when it finishes.
-  const { running: resting, secondsLeft } = useRestTimerState(restTimerSeconds)
+  const { running: restRunning, secondsLeft } = useRestTimerState(restTimerSeconds)
+  // A single continuous session has no rest between sets, so no rest view
+  const resting = restRunning && !session
 
   // Display unit only. lines[].weight is always kilograms, because every log,
   // default, intensity figure and report in the app is in kilograms — storing a
@@ -122,7 +154,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
   }
 
   // Defaults can only be saved when all sets are identical
-  const allSame = lines.every(l => l.reps === lines[0].reps && l.weight === lines[0].weight)
+  const allSame = session || lines.every(l => l.reps === lines[0].reps && l.weight === lines[0].weight)
 
   async function handleSubmit() {
     setLoading(true)
@@ -132,7 +164,25 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
     }
     const loggedAt = new Date(logDate)
     loggedAt.setHours(12, 0, 0, 0)
-    const records = lines.map(line => ({
+    // One row for the whole session. Reps, weight and intensity stay 0: there
+    // is nothing to multiply, and the reports that sum them skip these anyway.
+    const floorsN = num(floors)
+    const sessionRecord = {
+      user_id:          userId,
+      exercise_id:      exercise.id,
+      logged_at:        loggedAt.toISOString(),
+      workout_id:       workoutId,
+      notes:            note.trim() || null,
+      sets_completed:   1,
+      reps_completed:   0,
+      weight:           0,
+      intensity:        0,
+      rir:              null,
+      duration_seconds: (num(durMin) ?? 0) * 60,
+      distance_km:      metric === 'distance' ? num(distKm) : null,
+      floors_count:     metric === 'floors' && floorsN !== null ? Math.round(floorsN) : null,
+    }
+    const records = session ? [sessionRecord] : lines.map(line => ({
       user_id:        userId,
       exercise_id:    exercise.id,
       sets_completed: 1,
@@ -163,7 +213,11 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
     setSavingDefaults(true)
     await supabase
       .from('exercises_user')
-      .update({
+      .update(session ? {
+        default_duration_seconds: (num(durMin) ?? 0) * 60 || null,
+        default_distance_km:      metric === 'distance' ? num(distKm) : null,
+        default_floors_count:     metric === 'floors' && num(floors) !== null ? Math.round(num(floors)!) : null,
+      } : {
         default_sets:   lines.length,
         default_reps:   lines[0].reps,
         default_weight: lines[0].weight,
@@ -255,7 +309,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
             one — RestTimer shares its state across mounted instances.
             While it runs the controls are replaced by the large countdown
             below, so the bar is not shown twice. */}
-        {!resting && (
+        {!resting && !session && (
           <div className="mb-2">
             <RestTimer defaultSeconds={restTimerSeconds} compact />
           </div>
@@ -292,7 +346,27 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
             separated by a hairline, with clear space between sets.
             min-h-0 is required or the flex child refuses to shrink and scroll. */}
         <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-1 space-y-4 ${resting ? 'hidden' : ''}`}>
-          {lines.map((line, i) => (
+          {session && (
+            <div
+              className="bg-gray-50 rounded-2xl px-4 py-4 space-y-4"
+              style={{ borderInlineStart: `3px solid ${accent}` }}
+            >
+              <SessionField label="משך" unit="דק'" value={durMin} onChange={setDurMin} step={5} inputMode="numeric" />
+              {metric === 'distance' && (
+                <SessionField label="מרחק" unit='ק"מ' value={distKm} onChange={setDistKm} step={0.5} inputMode="decimal" />
+              )}
+              {metric === 'floors' && (
+                <SessionField label="קומות" unit="קומות" value={floors} onChange={setFloors} step={1} inputMode="numeric" />
+              )}
+              <p className="text-gray-400 text-[11px] leading-snug">
+                {kind === 'stretch'
+                  ? 'מתיחות / יוגה נרשמות כסשן אחד — משך בלבד.'
+                  : 'סשן רציף אחד. אין סטים, חזרות או משקל.'}
+              </p>
+            </div>
+          )}
+
+          {!session && lines.map((line, i) => (
             <div
               key={i}
               className="bg-gray-50 rounded-2xl px-4 py-3"
@@ -420,6 +494,45 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** A labelled number input with step buttons. Typing is allowed because
+ *  sessions are not round numbers - 37 minutes, 6.2 km - and tapping +5 forty
+ *  times is not a way to enter one. */
+function SessionField({ label, unit, value, onChange, step, inputMode }: {
+  label: string
+  unit: string
+  value: string
+  onChange: (v: string) => void
+  step: number
+  inputMode: 'numeric' | 'decimal'
+}) {
+  const bump = (delta: number) => {
+    const cur = parseFloat(value.replace(',', '.'))
+    const next = Math.max(0, (Number.isFinite(cur) ? cur : 0) + delta)
+    onChange(String(Math.round(next * 100) / 100))
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-gray-500 text-xs font-bold w-10 shrink-0 text-right">{label}</span>
+      <button
+        onClick={() => bump(-step)}
+        className="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-700 font-bold text-xl leading-none shrink-0"
+      >−</button>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        inputMode={inputMode}
+        placeholder="0"
+        className="flex-1 min-w-0 text-center text-gray-800 font-extrabold text-2xl tabular-nums bg-white border border-gray-200 rounded-xl py-1.5 outline-none focus:ring-2 focus:ring-blue-400"
+      />
+      <button
+        onClick={() => bump(step)}
+        className="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded-xl text-gray-700 font-bold text-xl leading-none shrink-0"
+      >+</button>
+      <span className="text-gray-400 text-xs w-9 shrink-0">{unit}</span>
     </div>
   )
 }

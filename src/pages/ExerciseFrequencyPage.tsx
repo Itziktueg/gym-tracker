@@ -28,6 +28,8 @@ const CATEGORY_DOT: Record<string, string> = {
   'גב וכתפיים':    'bg-violet-500',
   'חזה וזרועות':   'bg-orange-500',
   'בטן וליבה':     'bg-teal-500',
+  'אירובי':        'bg-rose-500',
+  'מתיחות / יוגה': 'bg-emerald-500',
 }
 
 const CATEGORY_TEXT: Record<string, string> = {
@@ -35,6 +37,8 @@ const CATEGORY_TEXT: Record<string, string> = {
   'גב וכתפיים':    'text-violet-500',
   'חזה וזרועות':   'text-orange-500',
   'בטן וליבה':     'text-teal-500',
+  'אירובי':        'text-rose-500',
+  'מתיחות / יוגה': 'text-emerald-500',
 }
 
 interface ExFreq {

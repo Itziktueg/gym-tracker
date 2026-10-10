@@ -32,6 +32,9 @@ export interface ExerciseGlobal {
   notes: string | null
   category: string | null
   sort_order: number
+  default_duration_seconds: number | null   // cardio / stretching: planned session length
+  default_distance_km: number | null         // cardio with a distance
+  default_floors_count: number | null        // stair climbing
   created_at: string
 }
 
@@ -59,6 +62,9 @@ export interface ExerciseUser {
   category: string | null
   sort_order: number
   is_active: boolean
+  default_duration_seconds: number | null
+  default_distance_km: number | null
+  default_floors_count: number | null
   created_at: string
 }
 
@@ -101,6 +107,9 @@ export interface WorkoutLog {
   logged_at: string
   workout_id: string | null    // which session this was logged under, if any
   rir: number | null           // reps in reserve, 0-4 (4 means "4 or more"); null = not recorded
+  duration_seconds: number | null   // cardio / stretching only; reps and weight stay 0
+  distance_km: number | null
+  floors_count: number | null
 }
 
 // Joined types used in the UI
