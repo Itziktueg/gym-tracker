@@ -10,17 +10,34 @@ interface Props {
   weekMode?: boolean
   weeklyLogs?: WorkoutLog[]
   planExerciseIds?: Set<string> | null
+  /** Plan exercises marked optional. They are not counted against you. */
+  optionalIds?: Set<string> | null
 }
 
-export default function DailySummary({ exercises, logs, selectedDate, isToday, onPrev, onNext, weekMode, weeklyLogs, planExerciseIds }: Props) {
+export default function DailySummary({ exercises, logs, selectedDate, isToday, onPrev, onNext, weekMode, weeklyLogs, planExerciseIds, optionalIds }: Props) {
   const activeLogs = weekMode && weeklyLogs ? weeklyLogs : logs
 
   // With an active plan the counter reads against the plan (7/14), not the full library
   const doneIds = new Set(activeLogs.map(l => l.exercise_id))
-  const exercisesDone = planExerciseIds
-    ? [...doneIds].filter(id => planExerciseIds.has(id)).length
+  // Optional exercises are not part of what is required, so they stay out of the
+  // denominator - the same rule ביצוע לעומת תכנון applies. Otherwise a workout
+  // offering five aerobic options, of which you do one, could never read 5/5.
+  // Optionals you did are shown separately as "+n" rather than hidden.
+  const isOptional = (id: string) => !!optionalIds?.has(id)
+  const requiredIds = planExerciseIds ? [...planExerciseIds].filter(id => !isOptional(id)) : null
+  const doneRequired = requiredIds
+    ? requiredIds.filter(id => doneIds.has(id)).length
     : doneIds.size
-  const totalExercises = planExerciseIds ? planExerciseIds.size : exercises.length
+  const doneOptional = planExerciseIds
+    ? [...doneIds].filter(id => planExerciseIds.has(id) && isOptional(id)).length
+    : 0
+  const totalExercises = requiredIds ? requiredIds.length : exercises.length
+
+  // A group with nothing required (an all-optional workout) has no fraction to
+  // show, only what you did.
+  const exercisesLabel = totalExercises > 0
+    ? `${doneRequired}/${totalExercises}${doneOptional > 0 ? ` +${doneOptional}` : ''}`
+    : String(doneOptional)
 
   const exerciseMap = new Map(exercises.map(e => [e.id, e]))
 
@@ -74,7 +91,7 @@ export default function DailySummary({ exercises, logs, selectedDate, isToday, o
 
       {/* Stats */}
       <div className="flex justify-around">
-        <Stat label="תרגילים" value={`${exercisesDone}/${totalExercises}`} weekMode={weekMode} />
+        <Stat label="תרגילים" value={exercisesLabel} weekMode={weekMode} />
         <Stat label="סטים" value={totalSets} weekMode={weekMode} />
         <Stat label="חזרות" value={totalReps} weekMode={weekMode} />
       </div>

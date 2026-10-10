@@ -693,6 +693,7 @@ export default function WorkoutPage({ userId, restTimerSeconds, isAdmin }: Props
         weekMode={weekMode}
         weeklyLogs={weeklyLogs}
         planExerciseIds={summaryIds}
+        optionalIds={planOptional}
       />
 
       {hasWorkouts && (() => {
