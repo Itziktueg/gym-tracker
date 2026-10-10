@@ -156,6 +156,14 @@ export default function PlanPage({ userId, onClose }: Props) {
   const [helpOpen,      setHelpOpen]      = useState(false)
   const [error,         setError]         = useState<string | null>(null)
 
+  // Adding one exercise straight into the plan that is running now, without
+  // versioning it. See addToActive().
+  const [adding,       setAdding]       = useState(false)
+  const [addExercise,  setAddExercise]  = useState('')
+  const [addToWorkout, setAddToWorkout]   = useState('')
+  const [addOptional,  setAddOptional]  = useState(false)
+  const [addBusy,      setAddBusy]      = useState(false)
+
   const todayISO = toISODate(new Date())
   const isSunday = new Date().getDay() === 0
 
@@ -306,6 +314,37 @@ export default function PlanPage({ userId, onClose }: Props) {
 
     return `${planName(activePlan)} תיסגר ב-${formatDate(toISODate(dayBefore))} · `
          + `תוכנית ${nextSeq} תתחיל ${when}`
+  }
+
+  /** Adds a single exercise to the plan that is running now, in place.
+   *
+   *  The normal edit closes the plan on the Saturday and opens the next one on
+   *  the Sunday, so that a training week never belongs to two plans. Adding one
+   *  exercise does not change which plan a week belongs to, only what the plan
+   *  contains, so it can safely take effect at once - and it is the only way to
+   *  start using a new exercise mid-week.
+   *
+   *  The cost is that "planned" in ביצוע לעומת תכנון is computed from the plan's
+   *  current contents for every week the plan has run, so a required exercise
+   *  added now also counts against the plan's earlier weeks. An optional one
+   *  does not, which is why the screen offers that choice. */
+  async function addToActive() {
+    if (!activePlan || !addExercise) return
+    setAddBusy(true)
+    setError(null)
+    const { error: e } = await supabase.from('workout_plan_exercises').insert({
+      plan_id:     activePlan.id,
+      exercise_id: addExercise,
+      workout_id:  addToWorkout || null,
+      is_optional: addOptional,
+    })
+    setAddBusy(false)
+    if (e) { setError('הוספת תרגיל: ' + e.message); return }
+    setAdding(false)
+    setAddExercise('')
+    setAddToWorkout('')
+    setAddOptional(false)
+    await load()
   }
 
   async function save() {
@@ -684,6 +723,91 @@ export default function PlanPage({ userId, onClose }: Props) {
                 : 'יצירת תוכנית'}
             </button>
 
+            {activePlan && (() => {
+              const inPlan = links[activePlan.id] ?? new Map<string, string | null>()
+              const candidates = activeExercises.filter(e => !inPlan.has(e.id))
+              const planWorkouts = workouts[activePlan.id] ?? []
+              return (
+                <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                  <button
+                    onClick={() => setAdding(a => !a)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-right active:bg-gray-50"
+                  >
+                    <span className="text-gray-700 text-sm font-semibold">
+                      ＋ הוספת תרגיל ל{planName(activePlan)} — מיידית
+                    </span>
+                    <span className="text-gray-300 text-lg">{adding ? '−' : '+'}</span>
+                  </button>
+
+                  {adding && (
+                    <div className="px-4 pb-4 pt-1 border-t border-gray-100 space-y-3">
+                      <p className="text-gray-500 text-xs leading-relaxed">
+                        מוסיף תרגיל אחד לתוכנית הפעילה, והוא מופיע במסך הבית מיד — בלי ליצור
+                        גרסה חדשה ובלי לחכות ליום ראשון.
+                      </p>
+
+                      {candidates.length === 0 ? (
+                        <p className="text-gray-400 text-xs">כל התרגילים הפעילים שלך כבר בתוכנית.</p>
+                      ) : (
+                        <>
+                          <label className="block">
+                            <span className="text-gray-400 text-[11px] block mb-0.5">תרגיל</span>
+                            <select
+                              value={addExercise}
+                              onChange={e => setAddExercise(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-800 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                            >
+                              <option value="">בחר תרגיל…</option>
+                              {group(candidates).map(g => (
+                                <optgroup key={g.cat} label={g.cat}>
+                                  {g.items.map(e => <option key={e.id} value={e.id}>{e.name_he}</option>)}
+                                </optgroup>
+                              ))}
+                            </select>
+                          </label>
+
+                          {planWorkouts.length > 0 && (
+                            <label className="block">
+                              <span className="text-gray-400 text-[11px] block mb-0.5">אימון</span>
+                              <select
+                                value={addToWorkout}
+                                onChange={e => setAddToWorkout(e.target.value)}
+                                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-800 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                              >
+                                <option value="">ללא שיוך לאימון</option>
+                                {planWorkouts.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                              </select>
+                            </label>
+                          )}
+
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={addOptional}
+                              onChange={e => setAddOptional(e.target.checked)}
+                              className="w-4 h-4 mt-0.5"
+                            />
+                            <span className="text-gray-700 text-xs leading-relaxed">
+                              תרגיל רשות. תרגיל חובה שנוסף עכשיו נספר גם בשבועות הקודמים של התוכנית
+                              בדוח "ביצוע לעומת תכנון" ומוריד שם את האחוזים. תרגיל רשות לא.
+                            </span>
+                          </label>
+
+                          <button
+                            onClick={addToActive}
+                            disabled={!addExercise || addBusy}
+                            className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white font-bold rounded-xl py-2.5 text-sm"
+                          >
+                            {addBusy ? '...' : 'הוסף לתוכנית'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
             {/* Said before editing, not after saving: the change is real but it
                 does not touch the week already under way. */}
             {takesEffectLater && !futurePlan && (
@@ -738,6 +862,7 @@ export default function PlanPage({ userId, onClose }: Props) {
           { title: 'שיוך תרגילים', body: 'בחר טאב של אימון ולחץ על תרגילים כדי לשייך אליו. תרגיל שכבר שייך לאימון אחר מציג את שמו — לחיצה עליו תעביר אותו לאימון הנוכחי.' },
           { title: 'ללא שיוך', body: 'תרגילים שנוספו לפני שהוגדרו אימונים מופיעים בטאב "ללא שיוך" עד ששייכת אותם.' },
           { title: 'שמות התוכניות', body: 'המערכת ממספרת אוטומטית — תוכנית 0 היא התקופה שלפני התכנון, ואחריה 1, 2, 3...' },
+          { title: 'הוספת תרגיל מיידית', body: 'הכפתור "הוספת תרגיל" מוסיף תרגיל אחד לתוכנית הפעילה, והוא מופיע במסך הבית מיד — בלי גרסה חדשה ובלי לחכות ליום ראשון. לשינוי רחב יותר (הסרה, חלוקה מחדש) משתמשים ב"שינוי התוכנית". תרגיל חובה שנוסף כך נספר גם בשבועות הקודמים של התוכנית בדוח ביצוע לעומת תכנון; תרגיל רשות לא.' },
           { title: 'שינוי תוכנית', body: 'אפשר לשנות תוכנית בכל יום. שינוי שנשמר באמצע השבוע נכנס לתוקף ביום ראשון הקרוב — התוכנית הנוכחית ממשיכה עד אז, כך שהשבוע שכבר התחלת נשאר שייך לתוכנית אחת. עד שהתוכנית החדשה מתחילה אפשר להמשיך לערוך אותה.' },
         ]} />
       )}
