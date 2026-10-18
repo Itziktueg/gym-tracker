@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { ExerciseUser, WorkoutLog } from '../../types/database'
-import { activityKind, SESSION_STYLE } from '../../lib/activity'
+import { activityKind, SESSION_STYLE, describeSession } from '../../lib/activity'
+import { buildPrevious, shortDay, type PreviousPerformance } from '../../lib/previousPerformance'
 import RestTimer, { useRestTimerState, stopRestTimer, formatRestTime } from './RestTimer'
 
 interface Props {
@@ -139,6 +140,26 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
   // mix would quietly corrupt years of history. Pounds are converted at the edge.
   const [unit, setUnit] = useState<Unit>(loadUnit)
   useEffect(() => { saveUnit(unit) }, [unit])
+
+  // What this exercise looked like the last time it was done, before the day
+  // being logged. Strictly earlier days: reopening today's own entry must not
+  // report itself as "last time".
+  const [previous, setPrevious] = useState<PreviousPerformance | null>(null)
+  useEffect(() => {
+    let alive = true
+    const dayStart = new Date(logDate)
+    dayStart.setHours(0, 0, 0, 0)
+    supabase
+      .from('workout_logs')
+      .select('logged_at, sets_completed, reps_completed, weight, duration_seconds, distance_km, steps_count')
+      .eq('user_id', userId)
+      .eq('exercise_id', exercise.id)
+      .lt('logged_at', dayStart.toISOString())
+      .order('logged_at', { ascending: false })
+      .limit(40)
+      .then(({ data }) => { if (alive) setPrevious(buildPrevious(data ?? [])) })
+    return () => { alive = false }
+  }, [exercise.id, userId, logDate])
 
   function updateLine(i: number, field: 'reps' | 'weight' | 'rir', value: number | null) {
     setLines(prev => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l))
@@ -446,6 +467,26 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
 
         {/* Tight chrome so three set cards clear the scroll area on a phone */}
         <div className="px-6 pb-4 pt-2 shrink-0">
+        {/* Last time, as reps/weight per set. Sits in the fixed footer, one line
+            when it can be, so the set cards above keep their room. */}
+        {previous && (
+          <p className="text-gray-500 text-[11px] leading-snug mb-1.5 tabular-nums">
+            <span className="font-bold text-gray-600">קודם</span>
+            <span className="text-gray-400"> ({shortDay(previous.date)})</span>
+            {': '}
+            {previous.session
+              ? describeSession(previous.session)
+              : <>
+                  {previous.sets
+                    .map(st => st.weight > 0 ? `${st.reps}/${fmtWeight(st.weight, unit)}` : String(st.reps))
+                    .join(' · ')}
+                  {previous.sets.some(st => st.weight > 0) && (
+                    <span className="text-gray-400"> {unit === 'kg' ? 'ק"ג' : 'lb'}</span>
+                  )}
+                </>}
+          </p>
+        )}
+
         {/* How the exercise felt — read later by the coach */}
         <div className="mb-2">
           <label className="text-gray-500 text-xs font-medium block mb-0.5">
