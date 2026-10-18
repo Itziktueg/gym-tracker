@@ -151,7 +151,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
     dayStart.setHours(0, 0, 0, 0)
     supabase
       .from('workout_logs')
-      .select('logged_at, sets_completed, reps_completed, weight, duration_seconds, distance_km, steps_count')
+      .select('logged_at, sets_completed, reps_completed, weight, duration_seconds, distance_km, steps_count, rir')
       .eq('user_id', userId)
       .eq('exercise_id', exercise.id)
       .lt('logged_at', dayStart.toISOString())
@@ -478,16 +478,14 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                 set rows above (reps on the right, weight on the left). */}
             {!previous.session && (
               <span className="text-gray-400">
-                {' '}{previous.sets.some(st => st.weight > 0)
-                  ? "חז'/" + (unit === 'kg' ? 'ק"ג' : 'lb')
-                  : "חז'"}
+                {' '}{["חז'", previous.sets.some(st => st.weight > 0) ? (unit === 'kg' ? 'ק"ג' : 'lb') : null, previous.sets.some(st => st.rir != null) ? 'RIR' : null].filter(Boolean).join('/')}
               </span>
             )}
             {': '}
             {previous.session
               ? describeSession(previous.session)
               : previous.sets
-                  .map(st => st.weight > 0 ? `${st.reps}‏/‏${fmtWeight(st.weight, unit)}` : String(st.reps))
+                  .map(st => [st.reps, st.weight > 0 ? fmtWeight(st.weight, unit) : null, st.rir != null ? st.rir : null].filter(x => x !== null).join('‏/‏'))
                   .join(' · ')}
           </p>
         )}

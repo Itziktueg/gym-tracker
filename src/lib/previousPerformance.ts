@@ -14,13 +14,14 @@ export interface PrevRow {
   duration_seconds: number | null
   distance_km: number | null
   steps_count: number | null
+  rir?: number | null
 }
 
 export interface PreviousPerformance {
   /** Local date of that session, YYYY-MM-DD */
   date: string
   /** One entry per set, in the order the rows came back */
-  sets: { reps: number; weight: number }[]
+  sets: { reps: number; weight: number; rir: number | null }[]
   /** Cardio / stretching: the single session, instead of sets */
   session: { duration_seconds: number | null; distance_km: number | null; steps_count: number | null } | null
 }
@@ -60,7 +61,7 @@ export function buildPrevious(rows: PrevRow[]): PreviousPerformance | null {
   for (const r of sameDay) {
     const n = Math.min(Math.max(r.sets_completed ?? 1, 1), 10)
     for (let i = 0; i < n; i++) {
-      sets.push({ reps: r.reps_completed ?? 0, weight: r.weight ?? 0 })
+      sets.push({ reps: r.reps_completed ?? 0, weight: r.weight ?? 0, rir: r.rir ?? null })
     }
   }
   return { date, sets, session: null }
