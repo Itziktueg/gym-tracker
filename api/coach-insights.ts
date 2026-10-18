@@ -176,6 +176,19 @@ export default async function handler(req: any, res: any) {
     return
   }
 
+  // Administrators only. The UI hides the report from everyone else, but that is
+  // not a control: the endpoint is public and each call is a paid API request.
+  // The role is read through the caller's own token, so it cannot be claimed.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userData.user.id)
+    .single()
+  if (profile?.role !== 'admin') {
+    res.status(403).json({ error: 'admin_only' })
+    return
+  }
+
   // ── The reported period.
   // The plan is weekly, so the default is this training week (Sunday to today)
   // rather than "everything since the last report" — a range the user could not

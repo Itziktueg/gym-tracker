@@ -12,11 +12,12 @@ interface Props {
   onMuscleVolume: () => void
   onNotes: () => void
   onCoach: () => void
+  isAdmin: boolean
   onExercisePerf: () => void
   onExerciseMuscles: () => void
 }
 
-export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, onWeeklyDensity, onFrequency, onPlanVsActual, onMuscleVolume, onNotes, onCoach, onExercisePerf, onExerciseMuscles }: Props) {
+export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, onWeeklyDensity, onFrequency, onPlanVsActual, onMuscleVolume, onNotes, onCoach, onExercisePerf, onExerciseMuscles, isAdmin }: Props) {
   const [helpOpen, setHelpOpen] = useState(false)
 
   return (
@@ -28,13 +29,16 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, 
       </div>
 
       <div className="flex flex-col gap-3 p-4 mt-2">
-        {/* First: it reads the other reports' data and says what to do about it */}
-        <HubCard
-          icon="🧠"
-          title="תובנות מאמן"
-          description="ניתוח AI של האימונים האחרונים והמלצות להמשך"
-          onClick={onCoach}
-        />
+        {/* First: it reads the other reports' data and says what to do about it.
+            Administrators only - the endpoint enforces this too. */}
+        {isAdmin && (
+          <HubCard
+            icon="🧠"
+            title="תובנות מאמן"
+            description="ניתוח AI של האימונים האחרונים והמלצות להמשך"
+            onClick={onCoach}
+          />
+        )}
         <HubCard
           icon="📋"
           title="היסטוריית אימונים"
@@ -99,7 +103,9 @@ export default function ReportsHub({ onClose, onHistory, onProgress, onDensity, 
 
       {helpOpen && (
         <HelpModal onClose={() => setHelpOpen(false)} sections={[
-          { title: 'תובנות מאמן', body: 'מאמן AI שקורא את 4 השבועות האחרונים — סטים, RIR והערות — ונותן מבט לאחור והמלצות ממוספרות להמשך. ניתן להפיק פעם אחת אחרי כל אימון.' },
+          ...(isAdmin ? [
+            { title: 'תובנות מאמן', body: 'מאמן AI שקורא את 4 השבועות האחרונים — סטים, RIR והערות — ונותן מבט לאחור והמלצות ממוספרות להמשך. ניתן להפיק פעם אחת אחרי כל אימון.' }
+          ] : []),
           { title: 'היסטוריית אימונים', body: 'סיכום כל התרגילים שבוצעו — מספר סטים, ממוצע חזרות ומשקל מקסימלי.' },
           { title: 'ביצוע תרגילים', body: 'לכל תרגיל ושבוע — ממוצע חזרות, ממוצע משקל וממוצע RIR. מראה איך כל תרגיל מתקדם בפועל.' },
           { title: 'התקדמות עצימות', body: 'טבלת עצימות לפי תרגיל ותאריך — לזיהוי מגמות התקדמות.' },
