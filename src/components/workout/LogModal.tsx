@@ -470,7 +470,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         {/* Last time, as reps/weight per set. Sits in the fixed footer, one line
             when it can be, so the set cards above keep their room. */}
         {previous && (
-          <p className="text-gray-500 text-[11px] leading-snug mb-1.5 tabular-nums">
+          <p dir="rtl" className="text-gray-500 text-[11px] leading-snug mb-1.5 tabular-nums">
             <span className="font-bold text-gray-600">קודם</span>
             <span className="text-gray-400"> ({shortDay(previous.date)})</span>
             {/* The legend sits right after the date, naming what the numbers are:
@@ -478,15 +478,15 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
                 set rows above (reps on the right, weight on the left). */}
             {!previous.session && (
               <span className="text-gray-400">
-                {' '}{["חז'", previous.sets.some(st => st.weight > 0) ? (unit === 'kg' ? 'ק"ג' : 'lb') : null, previous.sets.some(st => st.rir != null) ? 'RIR' : null].filter(Boolean).join('/')}
+                {' '}<Seq sep="/" items={["חז'", ...(previous.sets.some(st => st.weight > 0) ? [unit === 'kg' ? 'ק"ג' : 'lb'] : []), ...(previous.sets.some(st => st.rir != null) ? ['RIR'] : [])]} />
               </span>
             )}
             {': '}
             {previous.session
               ? describeSession(previous.session)
-              : previous.sets
-                  .map(st => [st.reps, st.weight > 0 ? fmtWeight(st.weight, unit) : null, st.rir != null ? st.rir : null].filter(x => x !== null).join('‏/‏'))
-                  .join(' · ')}
+              : <Seq sep=" · " items={previous.sets.map((st, i) => (
+                  <Seq key={i} sep="/" items={[st.reps, ...(st.weight > 0 ? [fmtWeight(st.weight, unit)] : []), ...(st.rir != null ? [st.rir] : [])]} />
+                ))} />}
           </p>
         )}
 
@@ -585,5 +585,21 @@ function SessionField({ label, unit, value, onChange, step, inputMode }: {
       >+</button>
       <span className="text-gray-400 text-xs w-12 shrink-0">{unit}</span>
     </div>
+  )
+}
+
+/** Items in reading order, each in its own left-to-right island so Hebrew and
+ *  digits never reorder each other: the first item sits rightmost, the rest
+ *  follow leftwards (reps, then weight, then RIR). */
+function Seq({ items, sep }: { items: React.ReactNode[]; sep: string }) {
+  return (
+    <>
+      {items.map((x, i) => (
+        <span key={i}>
+          {i > 0 && sep}
+          {typeof x === "object" ? x : <bdi dir="ltr">{x}</bdi>}
+        </span>
+      ))}
+    </>
   )
 }
