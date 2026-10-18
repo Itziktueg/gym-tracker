@@ -470,14 +470,14 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         {/* Last time, as reps/weight per set. Sits in the fixed footer, one line
             when it can be, so the set cards above keep their room. */}
         {previous && (
-          <p dir="rtl" className="text-gray-600 text-xs font-bold leading-snug mb-1.5 tabular-nums">
-            <span className="font-bold text-gray-600">קודם</span>
-            <span className="text-gray-400"> ({shortDay(previous.date)})</span>
+          <p dir="rtl" className="text-gray-600 text-sm font-bold leading-snug mb-1.5 tabular-nums">
+            <span className="font-bold text-blue-900">קודם</span>
+            <span className="text-blue-900"> ({shortDay(previous.date)})</span>
             {/* The legend sits right after the date, naming what the numbers are:
                 reps first, then weight, the same order and the same sides as the
                 set rows above (reps on the right, weight on the left). */}
             {!previous.session && (
-              <span className="text-gray-400">
+              <span className="text-blue-900">
                 {' '}<Seq sep="/" items={["חז'", ...(previous.sets.some(st => st.weight > 0) ? [unit === 'kg' ? 'ק"ג' : 'lb'] : []), ...(previous.sets.some(st => st.rir != null) ? ['RIR'] : [])]} />
               </span>
             )}
