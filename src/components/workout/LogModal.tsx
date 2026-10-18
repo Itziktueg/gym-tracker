@@ -203,7 +203,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
       distance_km:      metric === 'distance' ? num(distKm) : null,
       steps_count:     metric === 'steps' && stepsN !== null ? Math.round(stepsN) : null,
     }
-    const records = session ? [sessionRecord] : lines.map(line => ({
+    const records = session ? [sessionRecord] : lines.filter(l => l.reps > 0).map(line => ({
       user_id:        userId,
       exercise_id:    exercise.id,
       sets_completed: 1,
@@ -390,7 +390,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           {!session && lines.map((line, i) => (
             <div
               key={i}
-              className="bg-gray-50 rounded-2xl px-4 py-3"
+              className={`bg-gray-50 rounded-2xl px-4 py-3 transition-opacity ${line.reps === 0 ? 'opacity-50' : ''}`}
               style={{ borderInlineStart: `3px solid ${accent}` }}
             >
               <div className="flex items-center gap-2">
@@ -401,7 +401,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
               {/* Reps */}
               <div className="flex items-center gap-1 flex-1 justify-center">
                 <button
-                  onClick={() => updateLine(i, 'reps', Math.max(1, line.reps - 1))}
+                  onClick={() => updateLine(i, 'reps', Math.max(0, line.reps - 1))}
                   className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-lg leading-none"
                 >−</button>
                 <span className="text-gray-800 font-extrabold text-[17px] w-[34px] text-center tabular-nums">{line.reps}</span>
@@ -473,17 +473,29 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
           <p className="text-gray-500 text-[11px] leading-snug mb-1.5 tabular-nums">
             <span className="font-bold text-gray-600">קודם</span>
             <span className="text-gray-400"> ({shortDay(previous.date)})</span>
+            {/* The legend sits right after the date, naming what the numbers are:
+                reps first, then weight, the same order and the same sides as the
+                set rows above (reps on the right, weight on the left). */}
+            {!previous.session && (
+              <span className="text-gray-400">
+                {' '}{previous.sets.some(st => st.weight > 0)
+                  ? "חז'/" + (unit === 'kg' ? 'ק"ג' : 'lb')
+                  : "חז'"}
+              </span>
+            )}
             {': '}
             {previous.session
               ? describeSession(previous.session)
-              : <>
-                  {previous.sets
-                    .map(st => st.weight > 0 ? `${st.reps}/${fmtWeight(st.weight, unit)}` : String(st.reps))
-                    .join(' · ')}
-                  {previous.sets.some(st => st.weight > 0) && (
-                    <span className="text-gray-400"> {unit === 'kg' ? 'ק"ג' : 'lb'}</span>
-                  )}
-                </>}
+              : previous.sets
+                  .map(st => st.weight > 0 ? `${st.reps}‏/‏${fmtWeight(st.weight, unit)}` : String(st.reps))
+                  .join(' · ')}
+          </p>
+        )}
+
+        {/* Said when it applies, not before: a 0-rep set is dropped on save */}
+        {!session && lines.some(l => l.reps === 0) && (
+          <p className="text-amber-700 text-[11px] leading-snug mb-1.5">
+            סט עם 0 חזרות לא נשמר.
           </p>
         )}
 
@@ -507,7 +519,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
         <div className="flex gap-2 items-stretch">
           <button
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || (!session && !lines.some(l => l.reps > 0))}
             className="flex-[1.4] font-bold rounded-2xl py-2.5 text-base bg-green-600 hover:bg-green-500 active:bg-green-700 text-white transition-colors disabled:opacity-50"
           >
             {loading ? '...' : 'אשר ✓'}
@@ -515,7 +527,7 @@ export default function LogModal({ exercise, todayLogs, userId, logDate, onClose
 
           <button
             onClick={handleUpdateDefaults}
-            disabled={!allSame || savingDefaults}
+            disabled={!allSame || savingDefaults || (!session && lines[0].reps === 0)}
             title={!allSame ? 'לא ניתן לשמור ברירות מחדל כאשר הסטים שונים זה מזה' : ''}
             className="flex-1 font-bold rounded-2xl px-1 py-2 text-xs leading-tight bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200 transition-colors disabled:opacity-40"
           >
